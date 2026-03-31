@@ -4,22 +4,43 @@ import { useState, useEffect } from 'react';
 import { getSunPosition, analyzeLighting } from '@/lib/sun/calculator';
 
 const SPOTS = [
-  { id: 'yonaha',    name: '与那覇前浜ビーチ',         pref: '沖縄県宮古島市',   lat: 24.7371, lng: 125.2642, bearing: 235 },
-  { id: 'chirihama', name: '千里浜なぎさドライブウェイ', pref: '石川県羽咋市',     lat: 36.8394, lng: 136.7495, bearing: 270 },
-  { id: 'matama',    name: '真玉海岸',                 pref: '大分県豊後高田市', lat: 33.5677, lng: 131.5234, bearing: 270 },
-  { id: 'nabeka',    name: '鍋冠山公園',               pref: '長崎県長崎市',     lat: 32.7280, lng: 129.8680, bearing: 350 },
-  { id: 'shukutsu',  name: '祝津パノラマ展望台',        pref: '北海道小樽市',     lat: 43.2380, lng: 140.9920, bearing: 270 },
-  { id: 'osaka',     name: '大坂トンネル展望台',        pref: '東京都八丈町',     lat: 33.1050, lng: 139.7890, bearing: 280 },
+  { id: 'yonaha',    name: '与那覇前浜ビーチ',         pref: '沖縄県宮古島市',    lat: 24.7371, lng: 125.2642, bearing: 235 },
+  { id: 'chirihama', name: '千里浜なぎさドライブウェイ', pref: '石川県羽咋市',      lat: 36.8394, lng: 136.7495, bearing: 270 },
+  { id: 'matama',    name: '真玉海岸',                 pref: '大分県豊後高田市',  lat: 33.5677, lng: 131.5234, bearing: 270 },
+  { id: 'nabeka',    name: '鍋冠山公園',               pref: '長崎県長崎市',      lat: 32.7280, lng: 129.8680, bearing: 350 },
+  { id: 'shukutsu',  name: '祝津パノラマ展望台',        pref: '北海道小樽市',      lat: 43.2380, lng: 140.9920, bearing: 270 },
+  { id: 'osaka',     name: '大坂トンネル展望台',        pref: '東京都八丈町',      lat: 33.1050, lng: 139.7890, bearing: 280 },
+  { id: 'kamui',     name: '神威岬',                   pref: '北海道積丹郡積丹町', lat: 43.3352, lng: 140.6447, bearing: 285 },
 ];
 
 function getScene(altitude: number, angleDiff: number) {
-  if (altitude < 0)     return { label: '夜・星空撮影',   emoji: '🌙', color: '#0f0c29', grad: 'linear-gradient(135deg,#0f0c29,#302b63)', text: '#e8e0ff', isNight: true };
-  if (altitude < 6)     return { label: 'マジックアワー', emoji: '🌅', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff', isNight: false };
+  if (altitude < 0)     return { label: '夜・星空撮影',    emoji: '🌙', color: '#0f0c29', grad: 'linear-gradient(135deg,#0f0c29,#302b63)', text: '#e8e0ff', isNight: true };
+  if (altitude < 6)     return { label: 'マジックアワー',  emoji: '🌅', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff',    isNight: false };
   if (altitude < 20)    return { label: 'ゴールデンアワー',emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false };
-  if (angleDiff <= 30)  return { label: '順光・海の透明感',emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff', isNight: false };
-  if (angleDiff <= 80)  return { label: 'サイドライト',   emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false };
+  if (angleDiff <= 30)  return { label: '順光・海の透明感',emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff',    isNight: false };
+  if (angleDiff <= 80)  return { label: 'サイドライト',    emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false };
   if (angleDiff <= 130) return { label: '半逆光・キラメキ',emoji: '🌟', color: '#d4a017', grad: 'linear-gradient(135deg,#d4a017,#f9ca24)', text: '#3d2a00', isNight: false };
-  return                       { label: '逆光・シルエット',emoji: '🎭', color: '#e17055', grad: 'linear-gradient(135deg,#e17055,#d63031)', text: '#fff', isNight: false };
+  return                       { label: '逆光・シルエット',emoji: '🎭', color: '#e17055', grad: 'linear-gradient(135deg,#e17055,#d63031)', text: '#fff',    isNight: false };
+}
+
+function getSunDesc(altitude: number, angleDiff: number) {
+  // 太陽の高さ
+  let altDesc: string;
+  if (altitude < 0)       altDesc = '太陽は地平線の下';
+  else if (altitude < 6)  altDesc = '太陽が沈みかけている';
+  else if (altitude < 20) altDesc = '地平線に近い柔らかい光';
+  else if (altitude < 45) altDesc = '斜めから差し込む光';
+  else                    altDesc = '真上に近い強い光';
+
+  // 光の方向
+  let dirDesc: string;
+  if (altitude < 0)        dirDesc = '';
+  else if (angleDiff <= 30)  dirDesc = '背後から光が当たっている';
+  else if (angleDiff <= 80)  dirDesc = '横から光が当たっている';
+  else if (angleDiff <= 130) dirDesc = '斜め前から光が当たっている';
+  else                       dirDesc = '正面から光が当たっている';
+
+  return { altDesc, dirDesc };
 }
 
 function getMoon(date: Date) {
@@ -28,28 +49,25 @@ function getMoon(date: Date) {
   const elapsed = (date.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
   const age = ((elapsed % lunarCycle) + lunarCycle) % lunarCycle;
   const illumination = Math.round((1 - Math.cos((age / lunarCycle) * 2 * Math.PI)) / 2 * 100);
-  let phase: string; let stars: number; let starColor: string;
-  if (age < 1.5)       { phase = '🌑 新月';     stars = 5; starColor = '#6c5ce7'; }
-  else if (age < 7.4)  { phase = '🌒 三日月';   stars = 4; starColor = '#0984e3'; }
-  else if (age < 10)   { phase = '🌓 上弦の月'; stars = 3; starColor = '#00b894'; }
-  else if (age < 14)   { phase = '🌔 十三夜月'; stars = 2; starColor = '#d4a017'; }
-  else if (age < 16.5) { phase = '🌕 満月';     stars = 1; starColor = '#e17055'; }
-  else if (age < 22)   { phase = '🌖 居待月';   stars = 2; starColor = '#d4a017'; }
-  else if (age < 25)   { phase = '🌗 下弦の月'; stars = 3; starColor = '#00b894'; }
-  else if (age < 28)   { phase = '🌘 有明月';   stars = 4; starColor = '#0984e3'; }
-  else                 { phase = '🌑 晦日月';   stars = 5; starColor = '#6c5ce7'; }
-  const starStr = '★'.repeat(stars) + '☆'.repeat(5 - stars);
-  return { age: Math.floor(age), phase, illumination, starStr, starColor };
+
+  let phase: string; let moonDesc: string; let stars: number; let starColor: string; let starLabel: string;
+  if (illumination <= 5)       { phase = '🌑 新月';         moonDesc = '月明かりなし';              stars = 5; starColor = '#6c5ce7'; starLabel = '最高によく見える'; }
+  else if (illumination <= 30) { phase = '🌒 細い月';       moonDesc = `月明かり：弱い（${illumination}%）`;     stars = 4; starColor = '#0984e3'; starLabel = 'よく見える'; }
+  else if (illumination <= 55) { phase = '🌓 半月';         moonDesc = `月明かり：やや強い（${illumination}%）`; stars = 3; starColor = '#00b894'; starLabel = 'まあまあ見える'; }
+  else if (illumination <= 80) { phase = '🌔 満月に近い月'; moonDesc = `月明かり：強い（${illumination}%）`;     stars = 2; starColor = '#d4a017'; starLabel = 'やや見えにくい'; }
+  else                         { phase = '🌕 満月';         moonDesc = `月明かり：とても強い（${illumination}%）`; stars = 1; starColor = '#e17055'; starLabel = '見えにくい'; }
+
+  return { phase, moonDesc, starStr: '★'.repeat(stars) + '☆'.repeat(5 - stars), starColor, starLabel };
 }
 
 function getWeather(cloudcover: number, weathercode: number) {
-  if (weathercode >= 61) return { label: '🌧️ 雨',    color: '#636e72', badge: '撮影困難', badgeColor: '#e17055' };
-  if (weathercode >= 51) return { label: '🌦️ 小雨',  color: '#74b9ff', badge: '撮影注意', badgeColor: '#fdcb6e' };
-  if (weathercode >= 45) return { label: '🌫️ 霧',    color: '#b2bec3', badge: '撮影注意', badgeColor: '#fdcb6e' };
-  if (cloudcover <= 20)  return { label: '☀️ 快晴',  color: '#f7b731', badge: '撮影最適', badgeColor: '#00b894' };
-  if (cloudcover <= 50)  return { label: '🌤️ 晴れ',  color: '#fdcb6e', badge: '撮影良好', badgeColor: '#0984e3' };
-  if (cloudcover <= 80)  return { label: '⛅ 曇り',  color: '#b2bec3', badge: '撮影可能', badgeColor: '#636e72' };
-  return                        { label: '☁️ 厚曇り', color: '#636e72', badge: '撮影困難', badgeColor: '#e17055' };
+  if (weathercode >= 61) return { label: '🌧️ 雨',    badge: '撮影困難', badgeColor: '#e17055' };
+  if (weathercode >= 51) return { label: '🌦️ 小雨',  badge: '撮影注意', badgeColor: '#fdcb6e' };
+  if (weathercode >= 45) return { label: '🌫️ 霧',    badge: '撮影注意', badgeColor: '#fdcb6e' };
+  if (cloudcover <= 20)  return { label: '☀️ 快晴',  badge: '撮影最適', badgeColor: '#00b894' };
+  if (cloudcover <= 50)  return { label: '🌤️ 晴れ',  badge: '撮影良好', badgeColor: '#0984e3' };
+  if (cloudcover <= 80)  return { label: '⛅ 曇り',  badge: '撮影可能', badgeColor: '#636e72' };
+  return                        { label: '☁️ 厚曇り', badge: '撮影困難', badgeColor: '#e17055' };
 }
 
 export default function Page() {
@@ -77,6 +95,7 @@ export default function Page() {
   const sunPos = getSunPosition(now, spot.lat, spot.lng);
   const result = analyzeLighting(sunPos, spot.bearing);
   const scene = getScene(sunPos.altitude, result.angleDiff);
+  const sunDesc = getSunDesc(sunPos.altitude, result.angleDiff);
   const moon = getMoon(now);
   const wd = weather ? getWeather(weather.cloudcover, weather.weathercode) : null;
 
@@ -121,25 +140,29 @@ export default function Page() {
           <div style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '0.8rem', letterSpacing: '-0.5px' }}>
             {scene.emoji} {scene.label}
           </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '10px', padding: '0.5rem 0.8rem', backdropFilter: 'blur(4px)' }}>
-              <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>太陽高度</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>{Math.round(sunPos.altitude)}°</div>
+          {/* 言葉で説明 */}
+          {sunPos.altitude >= 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1rem' }}>
+              <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>
+                ☀️ {sunDesc.altDesc}
+              </div>
+              {sunDesc.dirDesc && (
+                <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>
+                  📐 {sunDesc.dirDesc}
+                </div>
+              )}
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '10px', padding: '0.5rem 0.8rem', backdropFilter: 'blur(4px)' }}>
-              <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>光の角度差</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>{Math.round(result.angleDiff)}°</div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '10px', padding: '0.5rem 0.8rem', backdropFilter: 'blur(4px)' }}>
-              <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>太陽方位</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>{Math.round(sunPos.azimuth)}°</div>
-            </div>
+          )}
+          {/* 数字は小さく補足 */}
+          <div style={{ display: 'flex', gap: '0.8rem', opacity: 0.7 }}>
+            <div style={{ fontSize: '0.75rem' }}>高度 {Math.round(sunPos.altitude)}°</div>
+            <div style={{ fontSize: '0.75rem' }}>方位 {Math.round(sunPos.azimuth)}°</div>
+            <div style={{ fontSize: '0.75rem' }}>角度差 {Math.round(result.angleDiff)}°</div>
           </div>
         </div>
 
         {/* 天気・月齢 横並び */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
-          {/* 天気 */}
           <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>天気</div>
             {wd && weather ? (
@@ -155,13 +178,13 @@ export default function Page() {
               <div style={{ color: '#ccc', fontSize: '0.85rem' }}>取得中...</div>
             )}
           </div>
-          {/* 月齢 */}
+
           <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>月・星空</div>
-            <div style={{ fontSize: '1.4rem', marginBottom: '4px' }}>{moon.phase}</div>
-            <div style={{ fontSize: '0.75rem', color: '#888' }}>月齢 {moon.age}日</div>
-            <div style={{ fontSize: '0.75rem', color: '#888' }}>輝面比 {moon.illumination}%</div>
-            <div style={{ marginTop: '6px', fontSize: '0.85rem', fontWeight: '700', color: moon.starColor }}>{moon.starStr}</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '4px' }}>{moon.phase}</div>
+            <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '2px' }}>{moon.moonDesc}</div>
+            <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '6px' }}>星空：{moon.starLabel}</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: '700', color: moon.starColor }}>{moon.starStr}</div>
           </div>
         </div>
 
