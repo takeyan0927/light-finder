@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import { getSunPosition, analyzeLighting } from '@/lib/sun/calculator';
 
 const SPOTS = [
-  { id: 'yonaha',    name: '与那覇前浜ビーチ',         pref: '沖縄県宮古島市',    lat: 24.7371, lng: 125.2642, bearing: 235 },
-  { id: 'chirihama', name: '千里浜なぎさドライブウェイ', pref: '石川県羽咋市',      lat: 36.8394, lng: 136.7495, bearing: 270 },
-  { id: 'matama',    name: '真玉海岸',                 pref: '大分県豊後高田市',  lat: 33.5677, lng: 131.5234, bearing: 270 },
-  { id: 'nabeka',    name: '鍋冠山公園',               pref: '長崎県長崎市',      lat: 32.7280, lng: 129.8680, bearing: 350 },
-  { id: 'shukutsu',  name: '祝津パノラマ展望台',        pref: '北海道小樽市',      lat: 43.2380, lng: 140.9920, bearing: 270 },
-  { id: 'osaka',     name: '大坂トンネル展望台',        pref: '東京都八丈町',      lat: 33.1050, lng: 139.7890, bearing: 280 },
-  { id: 'kamui',     name: '神威岬',                   pref: '北海道積丹郡積丹町', lat: 43.3352, lng: 140.6447, bearing: 285 },
+  { id: 'yonaha',    name: '与那覇前浜ビーチ',         pref: '沖縄県宮古島市上野新里',   lat: 24.7371, lng: 125.2642, bearing: 235 },
+  { id: 'chirihama', name: '千里浜なぎさドライブウェイ', pref: '石川県羽咋市千里浜町',     lat: 36.8394, lng: 136.7495, bearing: 270 },
+  { id: 'matama',    name: '真玉海岸',                 pref: '大分県豊後高田市臼野',     lat: 33.5677, lng: 131.5234, bearing: 270 },
+  { id: 'nabeka',    name: '鍋冠山公園',               pref: '長崎県長崎市出雲2丁目',    lat: 32.7280, lng: 129.8680, bearing: 350 },
+  { id: 'shukutsu',  name: '祝津パノラマ展望台',        pref: '北海道小樽市祝津3丁目',    lat: 43.2380, lng: 140.9920, bearing: 270 },
+  { id: 'osaka',     name: '大坂トンネル展望台',        pref: '東京都八丈島八丈町大賀郷', lat: 33.1050, lng: 139.7890, bearing: 280 },
+  { id: 'kamui',     name: '神威岬',                   pref: '北海道積丹郡積丹町神岬町', lat: 43.3352, lng: 140.6447, bearing: 285 },
 ];
 
 function getScene(altitude: number, angleDiff: number) {
@@ -24,7 +24,6 @@ function getScene(altitude: number, angleDiff: number) {
 }
 
 function getSunDesc(altitude: number, angleDiff: number) {
-  // 太陽の高さ
   let altDesc: string;
   if (altitude < 0)       altDesc = '太陽は地平線の下';
   else if (altitude < 6)  altDesc = '太陽が沈みかけている';
@@ -32,9 +31,8 @@ function getSunDesc(altitude: number, angleDiff: number) {
   else if (altitude < 45) altDesc = '斜めから差し込む光';
   else                    altDesc = '真上に近い強い光';
 
-  // 光の方向
   let dirDesc: string;
-  if (altitude < 0)        dirDesc = '';
+  if (altitude < 0)          dirDesc = '';
   else if (angleDiff <= 30)  dirDesc = '背後から光が当たっている';
   else if (angleDiff <= 80)  dirDesc = '横から光が当たっている';
   else if (angleDiff <= 130) dirDesc = '斜め前から光が当たっている';
@@ -51,10 +49,10 @@ function getMoon(date: Date) {
   const illumination = Math.round((1 - Math.cos((age / lunarCycle) * 2 * Math.PI)) / 2 * 100);
 
   let phase: string; let moonDesc: string; let stars: number; let starColor: string; let starLabel: string;
-  if (illumination <= 5)       { phase = '🌑 新月';         moonDesc = '月明かりなし';              stars = 5; starColor = '#6c5ce7'; starLabel = '最高によく見える'; }
-  else if (illumination <= 30) { phase = '🌒 細い月';       moonDesc = `月明かり：弱い（${illumination}%）`;     stars = 4; starColor = '#0984e3'; starLabel = 'よく見える'; }
-  else if (illumination <= 55) { phase = '🌓 半月';         moonDesc = `月明かり：やや強い（${illumination}%）`; stars = 3; starColor = '#00b894'; starLabel = 'まあまあ見える'; }
-  else if (illumination <= 80) { phase = '🌔 満月に近い月'; moonDesc = `月明かり：強い（${illumination}%）`;     stars = 2; starColor = '#d4a017'; starLabel = 'やや見えにくい'; }
+  if (illumination <= 5)       { phase = '🌑 新月';         moonDesc = '月明かりなし';                    stars = 5; starColor = '#6c5ce7'; starLabel = '最高によく見える'; }
+  else if (illumination <= 30) { phase = '🌒 細い月';       moonDesc = `月明かり：弱い（${illumination}%）`;      stars = 4; starColor = '#0984e3'; starLabel = 'よく見える'; }
+  else if (illumination <= 55) { phase = '🌓 半月';         moonDesc = `月明かり：やや強い（${illumination}%）`;  stars = 3; starColor = '#00b894'; starLabel = 'まあまあ見える'; }
+  else if (illumination <= 80) { phase = '🌔 満月に近い月'; moonDesc = `月明かり：強い（${illumination}%）`;      stars = 2; starColor = '#d4a017'; starLabel = 'やや見えにくい'; }
   else                         { phase = '🌕 満月';         moonDesc = `月明かり：とても強い（${illumination}%）`; stars = 1; starColor = '#e17055'; starLabel = '見えにくい'; }
 
   return { phase, moonDesc, starStr: '★'.repeat(stars) + '☆'.repeat(5 - stars), starColor, starLabel };
@@ -116,7 +114,10 @@ export default function Page() {
         <div style={{ maxWidth: '480px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.7rem' }}>
             <span style={{ fontSize: '1.3rem' }}>🌞</span>
-            <span style={{ fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.5px' }}>Light Finder</span>
+            <div>
+              <div style={{ fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.5px' }}>Light Finder</div>
+              <div style={{ fontSize: '0.72rem', color: '#888', marginTop: '1px' }}>シャッターを押す前に、確認を。</div>
+            </div>
             <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: '#888' }}>
               {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })}
             </span>
@@ -126,7 +127,7 @@ export default function Page() {
             onChange={e => setSpot(SPOTS.find(s => s.id === e.target.value) ?? SPOTS[0])}
             style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e5e5e7', fontSize: '0.95rem', background: '#f5f5f7', cursor: 'pointer', fontWeight: '500' }}
           >
-            {SPOTS.map(s => <option key={s.id} value={s.id}>📍 {s.name}</option>)}
+            {SPOTS.map(s => <option key={s.id} value={s.id}>📍 {s.name}（{s.pref}）</option>)}
           </select>
         </div>
       </div>
@@ -140,7 +141,6 @@ export default function Page() {
           <div style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '0.8rem', letterSpacing: '-0.5px' }}>
             {scene.emoji} {scene.label}
           </div>
-          {/* 言葉で説明 */}
           {sunPos.altitude >= 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1rem' }}>
               <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>
@@ -153,7 +153,6 @@ export default function Page() {
               )}
             </div>
           )}
-          {/* 数字は小さく補足 */}
           <div style={{ display: 'flex', gap: '0.8rem', opacity: 0.7 }}>
             <div style={{ fontSize: '0.75rem' }}>高度 {Math.round(sunPos.altitude)}°</div>
             <div style={{ fontSize: '0.75rem' }}>方位 {Math.round(sunPos.azimuth)}°</div>
