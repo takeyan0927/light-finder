@@ -39,13 +39,43 @@ function getMoonInfo(date: Date) {
   return { age: Math.floor(age), phase, illumination, starIndex, starColor };
 }
 
+function getWeatherDescription(cloudcover: number, weathercode: number) {
+  if (weathercode >= 61) return { label: '🌧️ 雨', color: '#636e72', shooting: '撮影困難' };
+  if (weathercode >= 51) return { label: '🌦️ 小雨', color: '#74b9ff', shooting: '撮影注意' };
+  if (weathercode >= 45) return { label: '🌫️ 霧', color: '#b2bec3', shooting: '撮影注意' };
+  if (cloudcover <= 20)  return { label: '☀️ 快晴', color: '#f7b731', shooting: '撮影最適' };
+  if (cloudcover <= 50)  return { label: '🌤️ 晴れ', color: '#fdcb6e', shooting: '撮影良好' };
+  if (cloudcover <= 80)  return { label: '⛅ 曇り', color: '#b2bec3', shooting: '撮影可能' };
+  return { label: '☁️ 厚曇り', color: '#636e72', shooting: '撮影困難' };
+}
+
 export default function Page() {
   const [now, setNow] = useState<Date | null>(null);
   const [showNight, setShowNight] = useState(false);
+  const [weather, setWeather] = useState<{
+    cloudcover: number;
+    weathercode: number;
+    temperature: number;
+  } | null>(null);
 
   useEffect(() => {
     setNow(new Date());
     const timer = setInterval(() => setNow(new Date()), 60000);
+
+    // 天気データ取得
+    fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${YONAHA.lat}&longitude=${YONAHA.lng}&current=temperature_2m,weathercode,cloudcover&timezone=Asia%2FTokyo`
+    )
+      .then(res => res.json())
+      .then(data => {
+        setWeather({
+          cloudcover: data.current.cloudcover,
+          weathercode: data.current.weathercode,
+          temperature: Math.round(data.current.temperature_2m),
+        });
+      })
+      .catch(() => setWeather(null));
+
     return () => clearInterval(timer);
   }, []);
 
@@ -55,6 +85,9 @@ export default function Page() {
   const result = analyzeLighting(sunPos, YONAHA.bearing);
   const scene = getSceneDescription(sunPos.altitude, result.angleDiff);
   const moon = getMoonInfo(now);
+  const weatherDesc = weather
+    ? getWeatherDescription(weather.cloudcover, weather.weathercode)
+    : null;
 
   const hourlyList = Array.from({ length: 16 }, (_, i) => {
     const h = i + 5;
@@ -91,6 +124,41 @@ export default function Page() {
         <div style={{ fontSize: '0.85rem', marginTop: '0.3rem', opacity: 0.9 }}>
           太陽高度 {Math.round(sunPos.altitude)}° ／ 光の角度差 {Math.round(result.angleDiff)}°
         </div>
+      </div>
+
+      {/* 天気カード */}
+      <div style={{
+        background: '#f8f9fa',
+        borderRadius: '12px',
+        padding: '1rem 1.2rem',
+        marginBottom: '1rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        {weatherDesc && weather ? (
+          <>
+            <div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{weatherDesc.label}</div>
+              <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '4px' }}>
+                雲量 {weather.cloudcover}% ／ 気温 {weather.temperature}℃
+              </div>
+            </div>
+            <div style={{
+              fontSize: '0.85rem',
+              fontWeight: 'bold',
+              color: weatherDesc.color,
+              background: '#fff',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              border: `1px solid ${weatherDesc.color}`,
+            }}>
+              {weatherDesc.shooting}
+            </div>
+          </>
+        ) : (
+          <div style={{ color: '#aaa', fontSize: '0.85rem' }}>天気データ取得中...</div>
+        )}
       </div>
 
       {/* 月齢カード */}
