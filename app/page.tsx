@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import { getSunPosition, analyzeLighting } from '@/lib/sun/calculator';
 
 const SPOTS = [
-  { id: 'yonaha',    name: '与那覇前浜ビーチ',         pref: '沖縄県宮古島市上野新里',   lat: 24.7371, lng: 125.2642, bearing: 235 },
-  { id: 'chirihama', name: '千里浜なぎさドライブウェイ', pref: '石川県羽咋市千里浜町',     lat: 36.8394, lng: 136.7495, bearing: 270 },
-  { id: 'matama',    name: '真玉海岸',                 pref: '大分県豊後高田市臼野',     lat: 33.5677, lng: 131.5234, bearing: 270 },
-  { id: 'nabeka',    name: '鍋冠山公園',               pref: '長崎県長崎市出雲2丁目',    lat: 32.7280, lng: 129.8680, bearing: 350 },
-  { id: 'shukutsu',  name: '祝津パノラマ展望台',        pref: '北海道小樽市祝津3丁目',    lat: 43.2380, lng: 140.9920, bearing: 270 },
-  { id: 'osaka',     name: '大坂トンネル展望台',        pref: '東京都八丈島八丈町大賀郷', lat: 33.1050, lng: 139.7890, bearing: 280 },
-  { id: 'kamui',     name: '神威岬',                   pref: '北海道積丹郡積丹町神岬町', lat: 43.3352, lng: 140.6447, bearing: 285 },
+  { id: 'yonaha',    name: '与那覇前浜ビーチ',         pref: '沖縄県宮古島市',   lat: 24.7371, lng: 125.2642, bearing: 235 },
+  { id: 'chirihama', name: '千里浜なぎさドライブウェイ', pref: '石川県羽咋市',     lat: 36.8394, lng: 136.7495, bearing: 270 },
+  { id: 'matama',    name: '真玉海岸',                 pref: '大分県豊後高田市',     lat: 33.5677, lng: 131.5234, bearing: 270 },
+  { id: 'nabeka',    name: '鍋冠山公園',               pref: '長崎県長崎市',    lat: 32.7280, lng: 129.8680, bearing: 350 },
+  { id: 'shukutsu',  name: '祝津パノラマ展望台',        pref: '北海道小樽市',    lat: 43.2380, lng: 140.9920, bearing: 270 },
+  { id: 'osaka',     name: '大坂トンネル展望台',        pref: '東京都八丈島', lat: 33.1050, lng: 139.7890, bearing: 280 },
+  { id: 'kamui',     name: '神威岬',                   pref: '北海道積丹郡', lat: 43.3352, lng: 140.6447, bearing: 285 },
 ];
 
 function getScene(altitude: number, angleDiff: number) {
