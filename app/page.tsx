@@ -234,7 +234,7 @@ export default function Page() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.7rem' }}>
               <span style={{ fontSize: '1.3rem' }}>🌞</span>
               <div>
-                <div style={{ fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.5px' }}>Light Finder</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.5px' }}>絶景ファインダー</div>
                 <div style={{ fontSize: '0.72rem', color: '#888', marginTop: '1px' }}>シャッターを押す前に、確認を。</div>
               </div>
               <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: '#888' }}>
