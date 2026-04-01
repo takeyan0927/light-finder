@@ -71,32 +71,45 @@ function getWeather(cloudcover: number, weathercode: number) {
   return                        { label: '☁️ 厚曇り', badge: '撮影困難', badgeColor: '#e17055' };
 }
 
+const HISTORY_KEY = 'zekkei-finder-history';
+
+function loadHistory(): { name: string; lat: number; lng: number }[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]');
+  } catch { return []; }
+}
+
+function saveHistory(item: { name: string; lat: number; lng: number }) {
+  const history = loadHistory().filter(h => h.name !== item.name);
+  history.unshift(item);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 5)));
+}
+
 export default function Page() {
   const [now, setNow] = useState<Date | null>(null);
   const [spot, setSpot] = useState<Spot | null>(null);
   const [showNight, setShowNight] = useState(false);
   const [weather, setWeather] = useState<{ cloudcover: number; weathercode: number; temperature: number } | null>(null);
 
-  // 検索
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [step, setStep] = useState<'search' | 'bearing' | 'result'>('search');
   const [pendingSpot, setPendingSpot] = useState<{ name: string; lat: number; lng: number } | null>(null);
-
-  // コンパス
   const [compass, setCompass] = useState<number | null>(null);
   const [manualBearing, setManualBearing] = useState(0);
   const [compassError, setCompassError] = useState('');
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState('');
+  const [history, setHistory] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const arrowRef = useRef<any>(null);
 
   useEffect(() => {
     setNow(new Date());
+    setHistory(loadHistory());
     const t = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(t);
   }, []);
@@ -110,7 +123,6 @@ export default function Page() {
       .catch(() => setWeather(null));
   }, [spot]);
 
-  // 検索
   useEffect(() => {
     if (query.length < 2) { setResults([]); return; }
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -123,35 +135,54 @@ export default function Page() {
     }, 500);
   }, [query]);
 
-  // 地図初期化
   useEffect(() => {
     if (step !== 'bearing' || !pendingSpot || !mapRef.current) return;
     if (leafletMap.current) return;
-
     const L = (window as any).L;
     if (!L) return;
-
     const map = L.map(mapRef.current).setView([pendingSpot.lat, pendingSpot.lng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    const marker = L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
-    markerRef.current = marker;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
     leafletMap.current = map;
   }, [step, pendingSpot]);
 
-  // コンパス取得
+  // 現在地取得
+  const handleLocate = () => {
+    setLocating(true);
+    setLocateError('');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=ja`);
+          const data = await res.json();
+          const name = data.address?.city ?? data.address?.town ?? data.address?.village ?? '現在地';
+          setPendingSpot({ name, lat: latitude, lng: longitude });
+          setQuery(name);
+          setResults([]);
+          leafletMap.current = null;
+          setStep('bearing');
+        } catch {
+          setPendingSpot({ name: '現在地', lat: latitude, lng: longitude });
+          setQuery('現在地');
+          setStep('bearing');
+        }
+        setLocating(false);
+      },
+      () => {
+        setLocateError('現在地の取得に失敗しました');
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const startCompass = async () => {
     setCompassError('');
     try {
-      // iPhone用
       if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
         const permission = await (DeviceOrientationEvent as any).requestPermission();
-        if (permission !== 'granted') {
-          setCompassError('コンパスの許可が必要です');
-          return;
-        }
+        if (permission !== 'granted') { setCompassError('コンパスの許可が必要です'); return; }
       }
       window.addEventListener('deviceorientationabsolute', handleOrientation as any, true);
       window.addEventListener('deviceorientation', handleOrientation as any, true);
@@ -162,16 +193,9 @@ export default function Page() {
 
   const handleOrientation = (e: DeviceOrientationEvent & { webkitCompassHeading?: number }) => {
     let heading: number | null = null;
-    if (e.webkitCompassHeading != null) {
-      heading = e.webkitCompassHeading;
-    } else if (e.absolute && e.alpha != null) {
-      heading = 360 - e.alpha;
-    }
-    if (heading != null) {
-      const h = Math.round(heading);
-      setCompass(h);
-      setManualBearing(h);
-    }
+    if (e.webkitCompassHeading != null) heading = e.webkitCompassHeading;
+    else if (e.absolute && e.alpha != null) heading = 360 - e.alpha;
+    if (heading != null) { const h = Math.round(heading); setCompass(h); setManualBearing(h); }
   };
 
   const handleSelectResult = (r: SearchResult) => {
@@ -183,9 +207,20 @@ export default function Page() {
     setStep('bearing');
   };
 
+  const handleSelectHistory = (h: { name: string; lat: number; lng: number }) => {
+    setPendingSpot(h);
+    setQuery(h.name);
+    setResults([]);
+    leafletMap.current = null;
+    setStep('bearing');
+  };
+
   const handleConfirmBearing = () => {
     if (!pendingSpot) return;
-    setSpot({ ...pendingSpot, bearing: manualBearing });
+    const newSpot = { ...pendingSpot, bearing: manualBearing };
+    setSpot(newSpot);
+    saveHistory({ name: pendingSpot.name, lat: pendingSpot.lat, lng: pendingSpot.lng });
+    setHistory(loadHistory());
     setStep('result');
     window.removeEventListener('deviceorientationabsolute', handleOrientation as any, true);
     window.removeEventListener('deviceorientation', handleOrientation as any, true);
@@ -222,7 +257,6 @@ export default function Page() {
 
   return (
     <>
-      {/* Leaflet CSS/JS */}
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" async />
 
@@ -244,14 +278,25 @@ export default function Page() {
 
             {/* 検索ボックス */}
             <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                value={query}
-                onChange={e => { setQuery(e.target.value); if (step === 'result') { setStep('search'); setSpot(null); } }}
-                placeholder="📍 スポット名を入力（例：与那覇前浜）"
-                style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e5e5e7', fontSize: '0.95rem', background: '#f5f5f7', boxSizing: 'border-box' }}
-              />
-              {searching && <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888', fontSize: '0.8rem' }}>検索中...</div>}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  type="text"
+                  value={query}
+                  onChange={e => { setQuery(e.target.value); if (step === 'result') { setStep('search'); setSpot(null); } }}
+                  placeholder="📍 スポット名を入力"
+                  style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e5e5e7', fontSize: '0.95rem', background: '#f5f5f7' }}
+                />
+                <button
+                  onClick={handleLocate}
+                  disabled={locating}
+                  style={{ padding: '0.6rem 0.8rem', borderRadius: '10px', border: '1.5px solid #e5e5e7', background: '#fff', cursor: 'pointer', fontSize: '1.1rem', whiteSpace: 'nowrap' }}
+                >
+                  {locating ? '📡' : '📍現在地'}
+                </button>
+              </div>
+              {locateError && <div style={{ fontSize: '0.8rem', color: '#e17055', marginBottom: '6px' }}>{locateError}</div>}
+
+              {/* 検索候補 */}
               {results.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', borderRadius: '10px', border: '1px solid #e5e5e7', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 20, marginTop: '4px' }}>
                   {results.map((r, i) => (
@@ -262,33 +307,38 @@ export default function Page() {
                   ))}
                 </div>
               )}
+
+              {/* 検索履歴 */}
+              {step === 'search' && !query && history.length > 0 && (
+                <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e5e7', padding: '0.5rem 0' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#aaa', padding: '0.3rem 1rem', fontWeight: '600' }}>最近のスポット</div>
+                  {history.map((h, i) => (
+                    <div key={i} onClick={() => handleSelectHistory(h)} style={{ padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '0.85rem', borderTop: '1px solid #f5f5f7', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#aaa' }}>🕐</span>
+                      <span>{h.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1rem 1.2rem 2rem' }}>
 
-          {/* STEP: 撮影方向 */}
+          {/* 撮影方向入力 */}
           {step === 'bearing' && pendingSpot && (
             <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-
-              {/* 地図 */}
               <div ref={mapRef} style={{ height: '220px', background: '#e0e0e0' }} />
-
               <div style={{ padding: '1.2rem' }}>
                 <div style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.5rem' }}>📐 カメラを向ける方向</div>
-
-                {/* コンパスボタン */}
                 <button
                   onClick={startCompass}
                   style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', background: compass != null ? '#00b894' : '#0984e3', color: '#fff', border: 'none', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer', marginBottom: '0.8rem' }}
                 >
                   {compass != null ? `🧭 コンパス取得中： ${compass}°（${bearingLabel(compass)}）` : '🧭 コンパスで自動取得'}
                 </button>
-
                 {compassError && <div style={{ fontSize: '0.8rem', color: '#e17055', marginBottom: '0.8rem' }}>{compassError}</div>}
-
-                {/* 手動入力 */}
                 <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '0.5rem' }}>または手動で入力：</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.8rem' }}>
                   <input
@@ -301,7 +351,6 @@ export default function Page() {
                   <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#333' }}>{bearingLabel(manualBearing)}</span>
                 </div>
                 <input type="range" min={0} max={360} value={manualBearing} onChange={e => setManualBearing(Number(e.target.value))} style={{ width: '100%', marginBottom: '1rem' }} />
-
                 <button
                   onClick={handleConfirmBearing}
                   style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', background: '#e17055', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}
@@ -312,15 +361,14 @@ export default function Page() {
             </div>
           )}
 
-          {/* STEP: 結果表示 */}
+          {/* 結果表示 */}
           {step === 'result' && spot && scene && sunPos && result && sunDesc && (
             <>
               <div style={{ fontSize: '0.85rem', color: '#888', marginBottom: '1rem' }}>
-                📍 {spot.name}　撮影方向 {spot.bearing}°（{bearingLabel(spot.bearing)}）
+                📍 {spot.name}　{spot.bearing}°（{bearingLabel(spot.bearing)}）
                 <span onClick={() => { setStep('search'); setQuery(''); setSpot(null); }} style={{ marginLeft: '12px', color: '#0984e3', cursor: 'pointer', fontSize: '0.8rem' }}>変更</span>
               </div>
 
-              {/* メインカード */}
               <div style={{ background: scene.grad, borderRadius: '20px', padding: '2rem 1.8rem', color: scene.text, marginBottom: '1rem', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '7rem', opacity: 0.15 }}>{scene.emoji}</div>
                 <div style={{ fontSize: '0.8rem', fontWeight: '600', opacity: 0.8, marginBottom: '0.4rem', letterSpacing: '1px', textTransform: 'uppercase' }}>現在の撮影コンディション</div>
@@ -329,14 +377,8 @@ export default function Page() {
                 </div>
                 {sunPos.altitude >= 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1rem' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>
-                      ☀️ {sunDesc.altDesc}
-                    </div>
-                    {sunDesc.dirDesc && (
-                      <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>
-                        📐 {sunDesc.dirDesc}
-                      </div>
-                    )}
+                    <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>☀️ {sunDesc.altDesc}</div>
+                    {sunDesc.dirDesc && <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>📐 {sunDesc.dirDesc}</div>}
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: '0.8rem', opacity: 0.7 }}>
@@ -346,7 +388,6 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* 天気・月齢 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>天気</div>
@@ -355,13 +396,9 @@ export default function Page() {
                       <div style={{ fontSize: '1.4rem', marginBottom: '4px' }}>{wd.label}</div>
                       <div style={{ fontSize: '0.75rem', color: '#888' }}>雲量 {weather.cloudcover}%</div>
                       <div style={{ fontSize: '0.75rem', color: '#888' }}>気温 {weather.temperature}℃</div>
-                      <div style={{ marginTop: '8px', display: 'inline-block', padding: '2px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', background: wd.badgeColor + '22', color: wd.badgeColor }}>
-                        {wd.badge}
-                      </div>
+                      <div style={{ marginTop: '8px', display: 'inline-block', padding: '2px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', background: wd.badgeColor + '22', color: wd.badgeColor }}>{wd.badge}</div>
                     </>
-                  ) : (
-                    <div style={{ color: '#ccc', fontSize: '0.85rem' }}>取得中...</div>
-                  )}
+                  ) : <div style={{ color: '#ccc', fontSize: '0.85rem' }}>取得中...</div>}
                 </div>
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>月・星空</div>
@@ -372,7 +409,6 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* タイムライン */}
               <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.2rem 0.6rem' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>今日のタイムライン</div>
@@ -389,17 +425,15 @@ export default function Page() {
                   </div>
                 ))}
               </div>
-
               <p style={{ color: '#bbb', fontSize: '0.72rem', textAlign: 'center', marginTop: '1.2rem' }}>1分ごとに自動更新</p>
             </>
           )}
 
-          {/* 初期状態 */}
-          {step === 'search' && !spot && (
+          {step === 'search' && !spot && !query && (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#aaa' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📍</div>
               <div style={{ fontSize: '1rem', fontWeight: '600', color: '#888', marginBottom: '0.5rem' }}>スポットを検索してください</div>
-              <div style={{ fontSize: '0.85rem' }}>場所名を入力すると候補が表示されます</div>
+              <div style={{ fontSize: '0.85rem' }}>場所名を入力するか、現在地ボタンを使ってください</div>
             </div>
           )}
         </div>
