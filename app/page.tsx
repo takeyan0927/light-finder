@@ -19,8 +19,8 @@ interface SearchResult {
 
 function getScene(altitude: number, angleDiff: number, isMorning: boolean) {
   if (altitude < 0)     return { label: '夜・星空撮影',         emoji: '🌙', color: '#0f0c29', grad: 'linear-gradient(135deg,#0f0c29,#302b63)', text: '#e8e0ff', isNight: true };
-  if (altitude < 6)     return { label: isMorning ? '🌄 朝のマジックアワー' : '🌇 夕方のマジックアワー', emoji: isMorning ? '🌄' : '🌇', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff', isNight: false };
-  if (altitude < 20)    return { label: isMorning ? '✨ 朝のゴールデンアワー' : '✨ 夕方のゴールデンアワー', emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false };
+  if (altitude < 6)     return { label: isMorning ? '朝のマジックアワー' : '夕方のマジックアワー', emoji: isMorning ? '🌄' : '🌇', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff', isNight: false };
+  if (altitude < 20)    return { label: isMorning ? '朝のゴールデンアワー' : '夕方のゴールデンアワー', emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false };
   if (angleDiff <= 30)  return { label: '順光・海の透明感', emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff',    isNight: false };
   if (angleDiff <= 80)  return { label: 'サイドライト',    emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false };
   if (angleDiff <= 130) return { label: '半逆光・キラメキ',emoji: '🌟', color: '#d4a017', grad: 'linear-gradient(135deg,#d4a017,#f9ca24)', text: '#3d2a00', isNight: false };
@@ -238,19 +238,16 @@ export default function Page() {
     window.removeEventListener('deviceorientation', handleOrientation as any, true);
   };
 
-  if (!now) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#888' }}>計算中...</div>;
+  if (!now) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#333' }}>計算中...</div>;
 
   const sunPos = spot ? getSunPosition(now, spot.lat, spot.lng) : null;
   const result = spot && sunPos ? analyzeLighting(sunPos, spot.bearing) : null;
 
-  // 日の出・日の入り時刻
   const sunTimes = spot ? SunCalc.getTimes(now, spot.lat, spot.lng) : null;
   const sunrise = sunTimes?.sunrise;
   const sunset = sunTimes?.sunset;
   const sunriseHour = sunrise ? sunrise.getHours() + sunrise.getMinutes() / 60 : 6;
   const sunsetHour = sunset ? sunset.getHours() + sunset.getMinutes() / 60 : 18;
-
-  // 朝夕判定（日の出から日の入りの中間より前なら朝）
   const solarNoon = (sunriseHour + sunsetHour) / 2;
   const currentHour = now.getHours() + now.getMinutes() / 60;
   const isMorning = currentHour < solarNoon;
@@ -265,13 +262,11 @@ export default function Page() {
     const d = new Date(now); d.setHours(h, 0, 0, 0);
     const sp = getSunPosition(d, spot.lat, spot.lng);
     const an = analyzeLighting(sp, spot.bearing);
-    const hHour = h;
-    const isMorn = hHour < solarNoon;
+    const isMorn = h < solarNoon;
     const sc = getScene(sp.altitude, an.angleDiff, isMorn);
     return { h, sc, isNow: now.getHours() === h };
   }) : [];
 
-  // 今日のシーン一覧
   const sceneMap = new Map<string, { hours: number[]; sc: ReturnType<typeof getScene> }>();
   hourlyList.forEach(({ h, sc }) => {
     if (sc.isNight) return;
@@ -303,10 +298,10 @@ export default function Page() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.7rem' }}>
               <span style={{ fontSize: '1.3rem' }}>🌞</span>
               <div>
-                <div style={{ fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.5px' }}>絶景ファインダー</div>
-                <div style={{ fontSize: '0.72rem', color: '#888', marginTop: '1px' }}>シャッターを押す前に、確認を。</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.5px', color: '#333' }}>絶景ファインダー</div>
+                <div style={{ fontSize: '0.72rem', color: '#666', marginTop: '1px' }}>シャッターを押す前に、確認を。</div>
               </div>
-              <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: '#888' }}>
+              <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: '#555' }}>
                 {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })}
               </span>
             </div>
@@ -316,9 +311,9 @@ export default function Page() {
                   type="text" value={query}
                   onChange={e => { setQuery(e.target.value); if (step === 'result') { setStep('search'); setSpot(null); } }}
                   placeholder="📍 スポット名を入力"
-                  style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e5e5e7', fontSize: '0.95rem', background: '#f5f5f7' }}
+                  style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #ccc', fontSize: '0.95rem', background: '#f0f0f0', color: '#333' }}
                 />
-                <button onClick={handleLocate} disabled={locating} style={{ padding: '0.6rem 0.8rem', borderRadius: '10px', border: '1.5px solid #e5e5e7', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap', fontWeight: '600' }}>
+                <button onClick={handleLocate} disabled={locating} style={{ padding: '0.6rem 0.8rem', borderRadius: '10px', border: '1.5px solid #ccc', background: '#f0f0f0', cursor: 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap', fontWeight: '600', color: '#333' }}>
                   {locating ? '📡...' : '📍現在地'}
                 </button>
               </div>
@@ -326,19 +321,19 @@ export default function Page() {
               {results.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', borderRadius: '10px', border: '1px solid #e5e5e7', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 20, marginTop: '4px' }}>
                   {results.map((r, i) => (
-                    <div key={i} onClick={() => handleSelectResult(r)} style={{ padding: '0.7rem 1rem', borderBottom: '1px solid #f5f5f7', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    <div key={i} onClick={() => handleSelectResult(r)} style={{ padding: '0.7rem 1rem', borderBottom: '1px solid #f5f5f7', cursor: 'pointer', fontSize: '0.85rem', color: '#333' }}>
                       📍 {r.display_name.split('、')[0].split(',')[0]}
-                      <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px' }}>{r.display_name}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>{r.display_name}</div>
                     </div>
                   ))}
                 </div>
               )}
               {step === 'search' && !query && history.length > 0 && (
                 <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e5e7', padding: '0.5rem 0' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#aaa', padding: '0.3rem 1rem', fontWeight: '600' }}>最近のスポット</div>
+                  <div style={{ fontSize: '0.72rem', color: '#666', padding: '0.3rem 1rem', fontWeight: '600' }}>最近のスポット</div>
                   {history.map((h, i) => (
-                    <div key={i} onClick={() => handleSelectHistory(h)} style={{ padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '0.85rem', borderTop: '1px solid #f5f5f7', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#aaa' }}>🕐</span><span>{h.name}</span>
+                    <div key={i} onClick={() => handleSelectHistory(h)} style={{ padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '0.85rem', borderTop: '1px solid #f5f5f7', display: 'flex', alignItems: 'center', gap: '8px', color: '#333' }}>
+                      <span style={{ color: '#888' }}>🕐</span><span>{h.name}</span>
                     </div>
                   ))}
                 </div>
@@ -356,14 +351,14 @@ export default function Page() {
                 🎯 赤い矢印がカメラの向きです。スライダーで調整してください。
               </div>
               <div style={{ padding: '1.2rem' }}>
-                <div style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.8rem' }}>📐 カメラを向ける方向</div>
+                <div style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.8rem', color: '#333' }}>📐 カメラを向ける方向</div>
                 <button onClick={startCompass} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', background: compass != null ? '#00b894' : '#0984e3', color: '#fff', border: 'none', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer', marginBottom: '0.8rem' }}>
                   {compass != null ? `🧭 ${compass}°（${bearingLabel(compass)}）取得中` : '🧭 コンパスで自動取得'}
                 </button>
                 {compassError && <div style={{ fontSize: '0.8rem', color: '#e17055', marginBottom: '0.8rem' }}>{compassError}</div>}
                 <input type="range" min={0} max={360} value={manualBearing} onChange={e => setManualBearing(Number(e.target.value))} style={{ width: '100%', marginBottom: '0.5rem' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#888' }}>手動調整</span>
+                  <span style={{ fontSize: '0.85rem', color: '#555' }}>手動調整</span>
                   <span style={{ fontSize: '1.2rem', fontWeight: '700', color: '#e17055' }}>{manualBearing}°（{bearingLabel(manualBearing)}）</span>
                 </div>
                 <button onClick={handleConfirmBearing} style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', background: '#e17055', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}>
@@ -375,12 +370,11 @@ export default function Page() {
 
           {step === 'result' && spot && scene && sunPos && result && sunDesc && (
             <>
-              <div style={{ fontSize: '0.85rem', color: '#888', marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '1rem' }}>
                 📍 {spot.name}　{spot.bearing}°（{bearingLabel(spot.bearing)}）
                 <span onClick={() => { setStep('search'); setQuery(''); setSpot(null); }} style={{ marginLeft: '12px', color: '#0984e3', cursor: 'pointer', fontSize: '0.8rem' }}>変更</span>
               </div>
 
-              {/* 日の出・日の入り */}
               {sunrise && sunset && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
                   <div style={{ background: 'linear-gradient(135deg,#f39c12,#f7b731)', borderRadius: '12px', padding: '0.8rem 1rem', color: '#3d2200' }}>
@@ -400,7 +394,6 @@ export default function Page() {
                 </div>
               )}
 
-              {/* メインカード */}
               <div style={{ background: scene.grad, borderRadius: '20px', padding: '2rem 1.8rem', color: scene.text, marginBottom: '1rem', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '7rem', opacity: 0.15 }}>{scene.emoji}</div>
                 <div style={{ fontSize: '0.8rem', fontWeight: '600', opacity: 0.8, marginBottom: '0.4rem', letterSpacing: '1px', textTransform: 'uppercase' }}>現在の撮影コンディション</div>
@@ -418,15 +411,14 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* 今日のシーン一覧 */}
               {sceneMap.size > 0 && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📅 今日撮れるシーン</div>
                   {Array.from(sceneMap.entries()).map(([label, { hours, sc }]) => (
                     <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f7' }}>
                       <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: sc.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.85rem', fontWeight: '600', flex: 1 }}>{sc.emoji} {label}</span>
-                      <span style={{ fontSize: '0.8rem', color: '#888' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '600', flex: 1, color: '#333' }}>{sc.emoji} {label}</span>
+                      <span style={{ fontSize: '0.8rem', color: '#555' }}>
                         {hours[0]}:00{hours.length > 1 ? `〜${hours[hours.length - 1]}:00` : ''}
                       </span>
                     </div>
@@ -434,53 +426,51 @@ export default function Page() {
                 </div>
               )}
 
-              {/* 天気・月齢 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>天気</div>
+                  <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>天気</div>
                   {wd && weather ? (
                     <>
                       <div style={{ fontSize: '1.4rem', marginBottom: '4px' }}>{wd.label}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#888' }}>雲量 {weather.cloudcover}%</div>
-                      <div style={{ fontSize: '0.75rem', color: '#888' }}>気温 {weather.temperature}℃</div>
+                      <div style={{ fontSize: '0.75rem', color: '#555' }}>雲量 {weather.cloudcover}%</div>
+                      <div style={{ fontSize: '0.75rem', color: '#555' }}>気温 {weather.temperature}℃</div>
                       <div style={{ marginTop: '8px', display: 'inline-block', padding: '2px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', background: wd.badgeColor + '22', color: wd.badgeColor }}>{wd.badge}</div>
                     </>
-                  ) : <div style={{ color: '#ccc', fontSize: '0.85rem' }}>取得中...</div>}
+                  ) : <div style={{ color: '#888', fontSize: '0.85rem' }}>取得中...</div>}
                 </div>
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>月・星空</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '4px' }}>{moon.phase}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '2px' }}>{moon.moonDesc}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '6px' }}>星空：{moon.starLabel}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>月・星空</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '4px', color: '#333' }}>{moon.phase}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '2px' }}>{moon.moonDesc}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '6px' }}>星空：{moon.starLabel}</div>
                   <div style={{ fontSize: '0.9rem', fontWeight: '700', color: moon.starColor }}>{moon.starStr}</div>
                 </div>
               </div>
 
-              {/* タイムライン */}
               <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.2rem 0.6rem' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>今日のタイムライン</div>
-                  <button onClick={() => setShowNight(!showNight)} style={{ fontSize: '0.72rem', color: '#888', background: 'none', border: '1px solid #e5e5e7', borderRadius: '20px', padding: '3px 10px', cursor: 'pointer' }}>
+                  <button onClick={() => setShowNight(!showNight)} style={{ fontSize: '0.72rem', color: '#555', background: 'none', border: '1px solid #e5e5e7', borderRadius: '20px', padding: '3px 10px', cursor: 'pointer' }}>
                     {showNight ? '夜を隠す' : '夜も表示'}
                   </button>
                 </div>
                 {visibleList.map(({ h, sc, isNow }) => (
                   <div key={h} style={{ display: 'flex', alignItems: 'center', padding: '0.55rem 1.2rem', background: isNow ? '#fff8f0' : '#fff', borderTop: '1px solid #f5f5f7' }}>
-                    <span style={{ width: '40px', fontSize: '0.85rem', fontWeight: isNow ? '700' : '400', color: isNow ? '#e17055' : '#aaa' }}>{h}:00</span>
+                    <span style={{ width: '40px', fontSize: '0.85rem', fontWeight: isNow ? '700' : '400', color: isNow ? '#e17055' : '#888' }}>{h}:00</span>
                     <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: sc.color, marginRight: '0.8rem', flexShrink: 0 }} />
                     <span style={{ fontSize: '0.88rem', color: isNow ? '#333' : '#555', fontWeight: isNow ? '600' : '400' }}>{sc.emoji} {sc.label}</span>
                     {isNow && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#e17055', fontWeight: '700' }}>← 今</span>}
                   </div>
                 ))}
               </div>
-              <p style={{ color: '#bbb', fontSize: '0.72rem', textAlign: 'center', marginTop: '1.2rem' }}>1分ごとに自動更新</p>
+              <p style={{ color: '#888', fontSize: '0.72rem', textAlign: 'center', marginTop: '1.2rem' }}>1分ごとに自動更新</p>
             </>
           )}
 
           {step === 'search' && !spot && !query && (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#aaa' }}>
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#888' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📍</div>
-              <div style={{ fontSize: '1rem', fontWeight: '600', color: '#888', marginBottom: '0.5rem' }}>スポットを検索してください</div>
+              <div style={{ fontSize: '1rem', fontWeight: '600', color: '#555', marginBottom: '0.5rem' }}>スポットを検索してください</div>
               <div style={{ fontSize: '0.85rem' }}>場所名を入力するか、現在地ボタンを使ってください</div>
             </div>
           )}
