@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getSunPosition, analyzeLighting } from '@/lib/sun/calculator';
+import SunCalc from 'suncalc';
 
 interface Spot {
   name: string;
@@ -16,11 +17,11 @@ interface SearchResult {
   lon: string;
 }
 
-function getScene(altitude: number, angleDiff: number) {
-  if (altitude < 0)     return { label: '夜・星空撮影',    emoji: '🌙', color: '#0f0c29', grad: 'linear-gradient(135deg,#0f0c29,#302b63)', text: '#e8e0ff', isNight: true };
-  if (altitude < 6)     return { label: 'マジックアワー',  emoji: '🌅', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff',    isNight: false };
-  if (altitude < 20)    return { label: 'ゴールデンアワー',emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false };
-  if (angleDiff <= 30)  return { label: '順光・海の透明感',emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff',    isNight: false };
+function getScene(altitude: number, angleDiff: number, isMorning: boolean) {
+  if (altitude < 0)     return { label: '夜・星空撮影',         emoji: '🌙', color: '#0f0c29', grad: 'linear-gradient(135deg,#0f0c29,#302b63)', text: '#e8e0ff', isNight: true };
+  if (altitude < 6)     return { label: isMorning ? '🌄 朝のマジックアワー' : '🌇 夕方のマジックアワー', emoji: isMorning ? '🌄' : '🌇', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff', isNight: false };
+  if (altitude < 20)    return { label: isMorning ? '✨ 朝のゴールデンアワー' : '✨ 夕方のゴールデンアワー', emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false };
+  if (angleDiff <= 30)  return { label: '順光・海の透明感', emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff',    isNight: false };
   if (angleDiff <= 80)  return { label: 'サイドライト',    emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false };
   if (angleDiff <= 130) return { label: '半逆光・キラメキ',emoji: '🌟', color: '#d4a017', grad: 'linear-gradient(135deg,#d4a017,#f9ca24)', text: '#3d2a00', isNight: false };
   return                       { label: '逆光・シルエット',emoji: '🎭', color: '#e17055', grad: 'linear-gradient(135deg,#e17055,#d63031)', text: '#fff',    isNight: false };
@@ -81,6 +82,10 @@ function saveHistory(item: { name: string; lat: number; lng: number }) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 5)));
 }
 
+function formatTime(date: Date) {
+  return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
+}
+
 export default function Page() {
   const [now, setNow] = useState<Date | null>(null);
   const [spot, setSpot] = useState<Spot | null>(null);
@@ -131,52 +136,31 @@ export default function Page() {
     }, 500);
   }, [query]);
 
-  // 地図初期化
   useEffect(() => {
     if (step !== 'bearing' || !pendingSpot || !mapRef.current) return;
     if (leafletMap.current) return;
     const L = (window as any).L;
     if (!L) return;
-
     const map = L.map(mapRef.current).setView([pendingSpot.lat, pendingSpot.lng], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
     L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
     leafletMap.current = map;
   }, [step, pendingSpot]);
 
-  // 矢印を地図上に描画
   useEffect(() => {
     if (!leafletMap.current || !pendingSpot) return;
     const L = (window as any).L;
     if (!L) return;
-
-    if (arrowLayer.current) {
-      leafletMap.current.removeLayer(arrowLayer.current);
-    }
-
+    if (arrowLayer.current) leafletMap.current.removeLayer(arrowLayer.current);
     const rad = (manualBearing * Math.PI) / 180;
-    const dist = 0.003; // 約300m
+    const dist = 0.003;
     const endLat = pendingSpot.lat + dist * Math.cos(rad);
     const endLng = pendingSpot.lng + dist * Math.sin(rad);
-
-    const arrow = L.polyline(
-      [[pendingSpot.lat, pendingSpot.lng], [endLat, endLng]],
-      { color: '#e17055', weight: 4, opacity: 0.9 }
-    ).addTo(leafletMap.current);
-
-    // 矢印の先端（三角形）
-    const arrowHead = L.circleMarker([endLat, endLng], {
-      radius: 8,
-      color: '#e17055',
-      fillColor: '#e17055',
-      fillOpacity: 1,
-      weight: 0,
-    }).addTo(leafletMap.current);
-
+    const arrow = L.polyline([[pendingSpot.lat, pendingSpot.lng], [endLat, endLng]], { color: '#e17055', weight: 4, opacity: 0.9 }).addTo(leafletMap.current);
+    const arrowHead = L.circleMarker([endLat, endLng], { radius: 8, color: '#e17055', fillColor: '#e17055', fillOpacity: 1, weight: 0 }).addTo(leafletMap.current);
     const group = L.layerGroup([arrow, arrowHead]);
     arrowLayer.current = group;
     group.addTo(leafletMap.current);
-
   }, [manualBearing, pendingSpot]);
 
   const handleLocate = () => {
@@ -258,7 +242,20 @@ export default function Page() {
 
   const sunPos = spot ? getSunPosition(now, spot.lat, spot.lng) : null;
   const result = spot && sunPos ? analyzeLighting(sunPos, spot.bearing) : null;
-  const scene = sunPos && result ? getScene(sunPos.altitude, result.angleDiff) : null;
+
+  // 日の出・日の入り時刻
+  const sunTimes = spot ? SunCalc.getTimes(now, spot.lat, spot.lng) : null;
+  const sunrise = sunTimes?.sunrise;
+  const sunset = sunTimes?.sunset;
+  const sunriseHour = sunrise ? sunrise.getHours() + sunrise.getMinutes() / 60 : 6;
+  const sunsetHour = sunset ? sunset.getHours() + sunset.getMinutes() / 60 : 18;
+
+  // 朝夕判定（日の出から日の入りの中間より前なら朝）
+  const solarNoon = (sunriseHour + sunsetHour) / 2;
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const isMorning = currentHour < solarNoon;
+
+  const scene = sunPos && result ? getScene(sunPos.altitude, result.angleDiff, isMorning) : null;
   const sunDesc = sunPos && result ? getSunDesc(sunPos.altitude, result.angleDiff) : null;
   const moon = getMoon(now);
   const wd = weather ? getWeather(weather.cloudcover, weather.weathercode) : null;
@@ -268,8 +265,20 @@ export default function Page() {
     const d = new Date(now); d.setHours(h, 0, 0, 0);
     const sp = getSunPosition(d, spot.lat, spot.lng);
     const an = analyzeLighting(sp, spot.bearing);
-    return { h, sc: getScene(sp.altitude, an.angleDiff), isNow: now.getHours() === h };
+    const hHour = h;
+    const isMorn = hHour < solarNoon;
+    const sc = getScene(sp.altitude, an.angleDiff, isMorn);
+    return { h, sc, isNow: now.getHours() === h };
   }) : [];
+
+  // 今日のシーン一覧
+  const sceneMap = new Map<string, { hours: number[]; sc: ReturnType<typeof getScene> }>();
+  hourlyList.forEach(({ h, sc }) => {
+    if (sc.isNight) return;
+    if (!sceneMap.has(sc.label)) sceneMap.set(sc.label, { hours: [], sc });
+    sceneMap.get(sc.label)!.hours.push(h);
+  });
+
   const visibleList = showNight ? hourlyList : hourlyList.filter(({ sc, isNow }) => !sc.isNight || isNow);
 
   const bearingLabel = (b: number) => {
@@ -348,10 +357,7 @@ export default function Page() {
               </div>
               <div style={{ padding: '1.2rem' }}>
                 <div style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.8rem' }}>📐 カメラを向ける方向</div>
-                <button
-                  onClick={startCompass}
-                  style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', background: compass != null ? '#00b894' : '#0984e3', color: '#fff', border: 'none', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer', marginBottom: '0.8rem' }}
-                >
+                <button onClick={startCompass} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', background: compass != null ? '#00b894' : '#0984e3', color: '#fff', border: 'none', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer', marginBottom: '0.8rem' }}>
                   {compass != null ? `🧭 ${compass}°（${bearingLabel(compass)}）取得中` : '🧭 コンパスで自動取得'}
                 </button>
                 {compassError && <div style={{ fontSize: '0.8rem', color: '#e17055', marginBottom: '0.8rem' }}>{compassError}</div>}
@@ -360,10 +366,7 @@ export default function Page() {
                   <span style={{ fontSize: '0.85rem', color: '#888' }}>手動調整</span>
                   <span style={{ fontSize: '1.2rem', fontWeight: '700', color: '#e17055' }}>{manualBearing}°（{bearingLabel(manualBearing)}）</span>
                 </div>
-                <button
-                  onClick={handleConfirmBearing}
-                  style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', background: '#e17055', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}
-                >
+                <button onClick={handleConfirmBearing} style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', background: '#e17055', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}>
                   この方向で計算する →
                 </button>
               </div>
@@ -377,6 +380,27 @@ export default function Page() {
                 <span onClick={() => { setStep('search'); setQuery(''); setSpot(null); }} style={{ marginLeft: '12px', color: '#0984e3', cursor: 'pointer', fontSize: '0.8rem' }}>変更</span>
               </div>
 
+              {/* 日の出・日の入り */}
+              {sunrise && sunset && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
+                  <div style={{ background: 'linear-gradient(135deg,#f39c12,#f7b731)', borderRadius: '12px', padding: '0.8rem 1rem', color: '#3d2200' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '2px' }}>🌅 日の出</div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: '800' }}>{formatTime(sunrise)}</div>
+                    <div style={{ fontSize: '0.72rem', marginTop: '2px', opacity: 0.8 }}>
+                      マジックアワー {formatTime(new Date(sunrise.getTime() - 30 * 60000))}〜
+                    </div>
+                  </div>
+                  <div style={{ background: 'linear-gradient(135deg,#c0392b,#e74c3c)', borderRadius: '12px', padding: '0.8rem 1rem', color: '#fff' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '2px' }}>🌇 日の入り</div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: '800' }}>{formatTime(sunset)}</div>
+                    <div style={{ fontSize: '0.72rem', marginTop: '2px', opacity: 0.8 }}>
+                      マジックアワー 〜{formatTime(new Date(sunset.getTime() + 30 * 60000))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* メインカード */}
               <div style={{ background: scene.grad, borderRadius: '20px', padding: '2rem 1.8rem', color: scene.text, marginBottom: '1rem', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '7rem', opacity: 0.15 }}>{scene.emoji}</div>
                 <div style={{ fontSize: '0.8rem', fontWeight: '600', opacity: 0.8, marginBottom: '0.4rem', letterSpacing: '1px', textTransform: 'uppercase' }}>現在の撮影コンディション</div>
@@ -394,6 +418,23 @@ export default function Page() {
                 </div>
               </div>
 
+              {/* 今日のシーン一覧 */}
+              {sceneMap.size > 0 && (
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📅 今日撮れるシーン</div>
+                  {Array.from(sceneMap.entries()).map(([label, { hours, sc }]) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f7' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: sc.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: '600', flex: 1 }}>{sc.emoji} {label}</span>
+                      <span style={{ fontSize: '0.8rem', color: '#888' }}>
+                        {hours[0]}:00{hours.length > 1 ? `〜${hours[hours.length - 1]}:00` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 天気・月齢 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.7rem', color: '#888', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>天気</div>
@@ -415,6 +456,7 @@ export default function Page() {
                 </div>
               </div>
 
+              {/* タイムライン */}
               <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.2rem 0.6rem' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>今日のタイムライン</div>
