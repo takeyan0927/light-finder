@@ -257,14 +257,15 @@ export default function Page() {
   const moon = getMoon(now);
   const wd = weather ? getWeather(weather.cloudcover, weather.weathercode) : null;
 
-  const hourlyList = spot ? Array.from({ length: 16 }, (_, i) => {
-    const h = i + 5;
-    const d = new Date(now); d.setHours(h, 0, 0, 0);
+  const hourlyList = spot ? Array.from({ length: 28 }, (_, i) => {
+    const h = Math.floor(i / 2) + 5;
+    const m = i % 2 === 0 ? 0 : 30;
+    const d = new Date(now); d.setHours(h, m, 0, 0);
     const sp = getSunPosition(d, spot.lat, spot.lng);
     const an = analyzeLighting(sp, spot.bearing);
     const isMorn = h < solarNoon;
     const sc = getScene(sp.altitude, an.angleDiff, isMorn);
-    return { h, sc, isNow: now.getHours() === h };
+    return { h, m, sc, isNow: now.getHours() === h && (m === 0 ? now.getMinutes() < 30 : now.getMinutes() >= 30) };
   }) : [];
 
   const sceneMap = new Map<string, { hours: number[]; sc: ReturnType<typeof getScene> }>();
@@ -456,7 +457,7 @@ export default function Page() {
                 </div>
                 {visibleList.map(({ h, sc, isNow }) => (
                   <div key={h} style={{ display: 'flex', alignItems: 'center', padding: '0.55rem 1.2rem', background: isNow ? '#fff8f0' : '#fff', borderTop: '1px solid #f5f5f7' }}>
-                    <span style={{ width: '40px', fontSize: '0.85rem', fontWeight: isNow ? '700' : '400', color: isNow ? '#e17055' : '#888' }}>{h}:00</span>
+                    <span style={{ width: '44px', fontSize: '0.85rem', fontWeight: isNow ? '700' : '400', color: isNow ? '#e17055' : '#888' }}>{h}:{String(m).padStart(2,'0')}</span>
                     <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: sc.color, marginRight: '0.8rem', flexShrink: 0 }} />
                     <span style={{ fontSize: '0.88rem', color: isNow ? '#333' : '#555', fontWeight: isNow ? '600' : '400' }}>{sc.emoji} {sc.label}</span>
                     {isNow && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#e17055', fontWeight: '700' }}>← 今</span>}
