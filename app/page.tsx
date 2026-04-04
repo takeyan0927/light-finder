@@ -170,7 +170,7 @@ export default function Page() {
     if (query.length < 2) { setResults([]); return; }
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
-      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&accept-language=ja&countrycodes=jp`)
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=8&accept-language=ja&&addressdetails=1&namedetails=1`)
         .then(r => r.json()).then(d => setResults(d)).catch(() => {});
     }, 500);
   }, [query]);
@@ -430,6 +430,43 @@ export default function Page() {
                   {locating ? '📡...' : '📍現在地'}
                 </button>
               </div>
+              {/* 緯度経度入力 */}
+{step === 'search' && (
+  <div style={{ marginTop: '8px' }}>
+    <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '4px' }}>
+      📌 緯度経度で直接入力（Google Mapsでコピー可）
+    </div>
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <input
+        type="text"
+        placeholder="緯度（例：24.8234）"
+        id="lat-input"
+        style={{ flex: 1, padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1.5px solid #ccc', fontSize: '0.85rem', background: '#f0f0f0', color: '#333' }}
+      />
+      <input
+        type="text"
+        placeholder="経度（例：125.2891）"
+        id="lng-input"
+        style={{ flex: 1, padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1.5px solid #ccc', fontSize: '0.85rem', background: '#f0f0f0', color: '#333' }}
+      />
+      <button
+        onClick={() => {
+          const lat = parseFloat((document.getElementById('lat-input') as HTMLInputElement).value);
+          const lng = parseFloat((document.getElementById('lng-input') as HTMLInputElement).value);
+          if (isNaN(lat) || isNaN(lng)) return;
+          const name = `📌 ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          setPendingSpot({ name, lat, lng });
+          setQuery(name);
+          leafletMap.current = null;
+          setStep('bearing');
+        }}
+        style={{ padding: '0.5rem 0.8rem', borderRadius: '8px', background: '#0984e3', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}
+      >
+        GO
+      </button>
+    </div>
+  </div>
+)}
               {locateError && <div style={{ fontSize: '0.8rem', color: '#e17055', marginBottom: '6px' }}>{locateError}</div>}
               {results.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', borderRadius: '10px', border: '1px solid #e5e5e7', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 20, marginTop: '4px' }}>
