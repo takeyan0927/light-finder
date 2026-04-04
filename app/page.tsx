@@ -455,11 +455,11 @@ export default function Page() {
           </div>
         </div>
 
-        <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1rem 1.2rem 2rem' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1rem 1.2rem 2rem', paddingTop: '1.5rem' }}>
 
           {step === 'bearing' && pendingSpot && (
             <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <div ref={mapRef} style={{ height: '220px', background: '#e0e0e0' }} />
+              <div ref={mapRef} style={{ height: '220px', background: '#e0e0e0', zIndex: 1 }} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #f0f0f0' }}>
                 <button onClick={() => setMode('A')} style={{ padding: '0.8rem', background: mode === 'A' ? '#fff8f0' : '#f5f5f7', border: 'none', borderBottom: mode === 'A' ? '2px solid #e17055' : '2px solid transparent', cursor: 'pointer', fontSize: '0.85rem', fontWeight: mode === 'A' ? '700' : '400', color: mode === 'A' ? '#e17055' : '#888' }}>
                   📐 方向を指定
