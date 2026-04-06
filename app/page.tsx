@@ -21,6 +21,7 @@ interface HourlyWeather {
   hour: number;
   cloudcover: number;
   weathercode: number;
+  timeStr: string;
 }
 
 interface FavoriteSpot {
@@ -36,9 +37,20 @@ interface Memo {
   date: string;
 }
 
+interface DayForecast {
+  date: string;
+  label: string;
+  cloudcover: number;
+  weathercode: number;
+  sunrise: string;
+  sunset: string;
+}
+
 function getScene(altitude: number, angleDiff: number, isMorning: boolean, cloudcover?: number, weathercode?: number) {
   const isBad = weathercode != null && weathercode >= 51;
   const isCloudy = cloudcover != null && cloudcover > 80;
+  if (altitude < 0 && isBad) return { label: '夜・雨', emoji: '🌧️', color: '#636e72', grad: 'linear-gradient(135deg,#636e72,#b2bec3)', text: '#fff', isNight: true, photo: '/scene-cloudy-opt.jpg', photoDesc: '雨のため撮影困難です' };
+  if (altitude < 0 && isCloudy) return { label: '夜・曇り', emoji: '☁️', color: '#4a4a6a', grad: 'linear-gradient(135deg,#4a4a6a,#6a6a8a)', text: '#e8e0ff', isNight: true, photo: '/scene-cloudy-opt.jpg', photoDesc: '雲が多く星は見えにくいです' };
   if (altitude < 0) return { label: '夜・星空撮影', emoji: '🌙', color: '#0f0c29', grad: 'linear-gradient(135deg,#0f0c29,#302b63)', text: '#e8e0ff', isNight: true, photo: '/scene-star-opt.jpg', photoDesc: '満天の星空が広がります' };
   if (isBad) return { label: '雨・撮影注意', emoji: '🌧️', color: '#636e72', grad: 'linear-gradient(135deg,#636e72,#b2bec3)', text: '#fff', isNight: false, photo: '/scene-cloudy-opt.jpg', photoDesc: '雨天時は幻想的な雰囲気に' };
   if (isCloudy) return { label: '曇り・光の判断困難', emoji: '☁️', color: '#b2bec3', grad: 'linear-gradient(135deg,#b2bec3,#dfe6e9)', text: '#2d3436', isNight: false, photo: '/scene-cloudy-opt.jpg', photoDesc: '曇りでも柔らかい光が撮れます' };
@@ -156,6 +168,7 @@ export default function Page() {
   const [showNight, setShowNight] = useState(false);
   const [weather, setWeather] = useState<{ cloudcover: number; weathercode: number; temperature: number } | null>(null);
   const [hourlyWeather, setHourlyWeather] = useState<HourlyWeather[]>([]);
+  const [dayForecasts, setDayForecasts] = useState<DayForecast[]>([]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [step, setStep] = useState<'top' | 'search' | 'bearing' | 'result' | 'guide' | 'request'>('top');
@@ -201,12 +214,25 @@ export default function Page() {
 
   useEffect(() => {
     if (!spot) return;
-    setWeather(null); setHourlyWeather([]);
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${spot.lat}&longitude=${spot.lng}&current=temperature_2m,weathercode,cloudcover&hourly=cloudcover,weathercode&timezone=Asia%2FTokyo&forecast_days=1`)
+    setWeather(null); setHourlyWeather([]); setDayForecasts([]);
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${spot.lat}&longitude=${spot.lng}&current=temperature_2m,weathercode,cloudcover&hourly=cloudcover,weathercode&daily=weathercode,cloudcover_mean,sunrise,sunset&timezone=Asia%2FTokyo&forecast_days=3`)
       .then(r => r.json())
       .then(d => {
         setWeather({ cloudcover: d.current.cloudcover, weathercode: d.current.weathercode, temperature: Math.round(d.current.temperature_2m) });
-        setHourlyWeather(d.hourly.time.map((t: string, i: number) => ({ hour: new Date(t).getHours(), cloudcover: d.hourly.cloudcover[i], weathercode: d.hourly.weathercode[i] })));
+        setHourlyWeather(d.hourly.time.map((t: string, i: number) => ({
+          hour: new Date(t).getHours(),
+          cloudcover: d.hourly.cloudcover[i],
+          weathercode: d.hourly.weathercode[i],
+          timeStr: t,
+        })));
+        const today = new Date();
+        setDayForecasts(d.daily.time.map((t: string, i: number) => {
+          const date = new Date(t);
+          const diffDays = Math.round((date.getTime() - new Date(toDateString(today)).getTime()) / 86400000);
+          const label = diffDays === 0 ? '今日' : diffDays === 1 ? '明日' : '明後日';
+          const wd = getWeatherLabel(d.daily.cloudcover_mean[i], d.daily.weathercode[i]);
+          return { date: t, label, cloudcover: d.daily.cloudcover_mean[i], weathercode: d.daily.weathercode[i], sunrise: d.daily.sunrise[i], sunset: d.daily.sunset[i], weatherLabel: wd.label, badge: wd.badge, badgeColor: wd.badgeColor };
+        }));
       }).catch(() => {});
     setIsFavorite(loadFavorites().some(f => f.name === spot.name));
   }, [spot]);
@@ -223,6 +249,11 @@ export default function Page() {
   useEffect(() => {
     if (step !== 'bearing' || !pendingSpot || !mapRef.current) return;
     if (leafletMap.current) return;
+    try {
+      if (mapRef.current._leaflet_id) {
+        mapRef.current._leaflet_id = null;
+      }
+    } catch {}
     const L = (window as any).L;
     if (!L) return;
     const map = L.map(mapRef.current).setView([pendingSpot.lat, pendingSpot.lng], 14);
@@ -423,7 +454,10 @@ export default function Page() {
     const an = analyzeLighting(sp, spot.bearing);
     const hHour = h + m / 60;
     const isMorn = hHour < solarNoon;
-    const hw = hourlyWeather.find(w => w.hour === h);
+    const hw = hourlyWeather.find(w => {
+      const wDate = new Date(w.timeStr);
+      return wDate.getHours() === h && wDate.getDate() === d.getDate();
+    });
     const sc = getScene(sp.altitude, an.angleDiff, isMorn, hw?.cloudcover, hw?.weathercode);
     const isNow = now.getHours() === h && (m === 0 ? now.getMinutes() < 30 : now.getMinutes() >= 30);
     return { h, m, sc, isNow };
@@ -438,7 +472,6 @@ export default function Page() {
 
   const visibleList = showNight ? hourlyList : hourlyList.filter(({ sc, isNow }) => !sc.isNight || isNow);
 
-  // 使い方ガイド
   if (step === 'guide') {
     return (
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -479,7 +512,6 @@ export default function Page() {
     );
   }
 
-  // スポットリクエスト
   if (step === 'request') {
     return (
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -500,34 +532,31 @@ export default function Page() {
               </button>
             </div>
           ) : (
-            <>
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem', lineHeight: 1.6 }}>
-                  検索で見つからないスポットをリクエストできます。場所名と備考（住所・緯度経度など）を入力してください。
-                </div>
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', marginBottom: '4px' }}>場所名 *</div>
-                  <input type="text" value={requestName} onChange={e => setRequestName(e.target.value)} placeholder="例：比嘉ロードパーク"
-                    style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '8px', border: '1.5px solid #e5e5e7', fontSize: '0.95rem', color: '#333', boxSizing: 'border-box' }} />
-                </div>
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', marginBottom: '4px' }}>備考（住所・緯度経度など）</div>
-                  <textarea value={requestNote} onChange={e => setRequestNote(e.target.value)} placeholder="例：沖縄県うるま市与那城比嘉、緯度26.3456 経度127.8765"
-                    style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '8px', border: '1.5px solid #e5e5e7', fontSize: '0.9rem', color: '#333', boxSizing: 'border-box', height: '100px', resize: 'none' }} />
-                </div>
-                <button onClick={handleSendRequest} disabled={!requestName.trim()}
-                  style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', background: requestName.trim() ? '#e17055' : '#e5e5e7', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: requestName.trim() ? 'pointer' : 'default' }}>
-                  リクエストを送信する
-                </button>
+            <div style={{ background: '#fff', borderRadius: '16px', padding: '1.2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem', lineHeight: 1.6 }}>
+                検索で見つからないスポットをリクエストできます。
               </div>
-            </>
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', marginBottom: '4px' }}>場所名 *</div>
+                <input type="text" value={requestName} onChange={e => setRequestName(e.target.value)} placeholder="例：比嘉ロードパーク"
+                  style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '8px', border: '1.5px solid #e5e5e7', fontSize: '0.95rem', color: '#333', boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', marginBottom: '4px' }}>備考（住所・緯度経度など）</div>
+                <textarea value={requestNote} onChange={e => setRequestNote(e.target.value)} placeholder="例：沖縄県うるま市与那城比嘉"
+                  style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '8px', border: '1.5px solid #e5e5e7', fontSize: '0.9rem', color: '#333', boxSizing: 'border-box', height: '100px', resize: 'none' }} />
+              </div>
+              <button onClick={handleSendRequest} disabled={!requestName.trim()}
+                style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', background: requestName.trim() ? '#e17055' : '#e5e5e7', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: requestName.trim() ? 'pointer' : 'default' }}>
+                リクエストを送信する
+              </button>
+            </div>
           )}
         </div>
       </main>
     );
   }
 
-  // トップページ
   if (step === 'top') {
     return (
       <main style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#0f0c29 0%,#302b63 50%,#e17055 100%)', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
@@ -791,14 +820,7 @@ export default function Page() {
                     </div>
                   )}
 
-                  {/* サンプル写真 */}
-                  <div style={{ borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', position: 'relative' }}>
-                    <img src={scene.photo} alt={scene.label} style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }} />
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', padding: '1rem', color: '#fff' }}>
-                      <div style={{ fontSize: '0.75rem', opacity: 0.8, marginBottom: '2px' }}>今撮るとこんな写真に</div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: '700' }}>{scene.photoDesc}</div>
-                    </div>
-                  </div>
+                
 
                   <div style={{ background: scene.grad, borderRadius: '20px', padding: '2rem 1.8rem', color: scene.text, marginBottom: '1rem', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '7rem', opacity: 0.15 }}>{scene.emoji}</div>
@@ -832,6 +854,22 @@ export default function Page() {
                 </div>
               )}
 
+              {/* 3日間天気予報 */}
+              {dayForecasts.length > 0 && (
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📆 3日間の撮影チャンス</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                    {dayForecasts.map((df: any, i) => (
+                      <div key={i} style={{ background: '#f5f5f7', borderRadius: '12px', padding: '0.8rem 0.5rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#555', marginBottom: '4px' }}>{df.label}</div>
+                        <div style={{ fontSize: '1.3rem', marginBottom: '4px' }}>{df.weatherLabel?.split(' ')[0]}</div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: '700', color: df.badgeColor, background: df.badgeColor + '22', borderRadius: '20px', padding: '2px 6px', display: 'inline-block' }}>{df.badge}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>天気</div>
@@ -853,7 +891,6 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* 撮影メモ */}
               <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>📝 撮影メモ</div>
