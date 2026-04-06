@@ -237,22 +237,31 @@ export default function Page() {
     }, 500);
   }, [query]);
 
+  // 地図初期化（Leaflet読み込み待ち対応）
   useEffect(() => {
     if (step !== 'bearing' || !pendingSpot || !mapRef.current) return;
-    if (leafletMap.current) {
-      leafletMap.current.remove();
-      leafletMap.current = null;
+
+    const initMap = () => {
+      const L = (window as any).L;
+      if (!L) return;
+      if (leafletMap.current) { leafletMap.current.remove(); leafletMap.current = null; }
+      const mapEl = mapRef.current;
+      if (!mapEl) return;
+      if ((mapEl as any)._leaflet_id) (mapEl as any)._leaflet_id = null;
+      const map = L.map(mapEl).setView([pendingSpot.lat, pendingSpot.lng], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+      L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
+      leafletMap.current = map;
+    };
+
+    if ((window as any).L) {
+      initMap();
+    } else {
+      const timer = setInterval(() => {
+        if ((window as any).L) { clearInterval(timer); initMap(); }
+      }, 100);
+      return () => clearInterval(timer);
     }
-    const L = (window as any).L;
-    if (!L) return;
-    const mapEl = mapRef.current;
-    if ((mapEl as any)._leaflet_id) {
-      (mapEl as any)._leaflet_id = null;
-    }
-    const map = L.map(mapEl).setView([pendingSpot.lat, pendingSpot.lng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-    L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
-    leafletMap.current = map;
   }, [step, pendingSpot]);
 
   useEffect(() => {
@@ -269,21 +278,32 @@ export default function Page() {
     arrowLayer.current.addTo(leafletMap.current);
   }, [manualBearing, pendingSpot]);
 
+  // 提案結果の地図（Leaflet読み込み待ち対応）
   useEffect(() => {
     if (!suggestionResult || !resultMapRef.current || !spot) return;
-    if (resultLeafletMap.current) {
-      resultLeafletMap.current.remove();
-      resultLeafletMap.current = null;
+
+    const initResultMap = () => {
+      const L = (window as any).L;
+      if (!L) return;
+      if (resultLeafletMap.current) { resultLeafletMap.current.remove(); resultLeafletMap.current = null; }
+      const mapEl = resultMapRef.current;
+      if (!mapEl) return;
+      if ((mapEl as any)._leaflet_id) (mapEl as any)._leaflet_id = null;
+      const map = L.map(mapEl).setView([spot.lat, spot.lng], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+      L.marker([spot.lat, spot.lng]).addTo(map);
+      if (suggestionResult.azimuth != null) drawArrow(map, L, spot.lat, spot.lng, suggestionResult.azimuth, '#f39c12');
+      resultLeafletMap.current = map;
+    };
+
+    if ((window as any).L) {
+      initResultMap();
+    } else {
+      const timer = setInterval(() => {
+        if ((window as any).L) { clearInterval(timer); initResultMap(); }
+      }, 100);
+      return () => clearInterval(timer);
     }
-    const L = (window as any).L;
-    if (!L) return;
-    const mapEl = resultMapRef.current;
-    if ((mapEl as any)._leaflet_id) (mapEl as any)._leaflet_id = null;
-    const map = L.map(mapEl).setView([spot.lat, spot.lng], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-    L.marker([spot.lat, spot.lng]).addTo(map);
-    if (suggestionResult.azimuth != null) drawArrow(map, L, spot.lat, spot.lng, suggestionResult.azimuth, '#f39c12');
-    resultLeafletMap.current = map;
   }, [suggestionResult, spot]);
 
   const handleLocate = () => {
@@ -362,7 +382,7 @@ export default function Page() {
     const date = new Date(selectedDate + 'T12:00:00+09:00');
     const times = SunCalc.getTimes(date, pendingSpot.lat, pendingSpot.lng);
     const moon = getMoonForDate(date);
-    resultLeafletMap.current = null;
+    if (resultLeafletMap.current) { resultLeafletMap.current.remove(); resultLeafletMap.current = null; }
     if (selectedPurpose === 'sunrise') {
       const { azimuth } = getSunDirection(date, pendingSpot.lat, pendingSpot.lng, 'sunrise');
       setSuggestionResult({ type: 'sunrise', azimuth, time: formatTime(times.sunrise), magicStart: formatTime(new Date(times.sunrise.getTime() - 30 * 60000)), goldenEnd: formatTime(new Date(times.sunrise.getTime() + 60 * 60000)), moon });
@@ -401,20 +421,16 @@ export default function Page() {
   const handleSaveMemo = () => {
     if (!spot || !memoText.trim()) return;
     const memo: Memo = { spotName: spot.name, text: memoText, date: new Date().toLocaleDateString('ja-JP') };
-    saveMemo(memo);
-    setMemos(loadMemos());
-    setMemoText('');
-    setShowMemo(false);
+    saveMemo(memo); setMemos(loadMemos()); setMemoText(''); setShowMemo(false);
   };
 
   const handleSendRequest = async () => {
     if (!requestName.trim()) return;
-    const body = `スポット登録リクエスト\n場所名：${requestName}\n備考：${requestNote}`;
     try {
       await fetch(`https://formsubmit.co/hiroki.ykh.1228@gmail.com`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ subject: '絶景ファインダー スポットリクエスト', message: body }),
+        body: JSON.stringify({ subject: '絶景ファインダー スポットリクエスト', message: `場所名：${requestName}\n備考：${requestNote}` }),
       });
     } catch {}
     setRequestSent(true);
@@ -724,16 +740,12 @@ export default function Page() {
           {step === 'result' && spot && (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <button onClick={handleBackToBearing} style={{ background: 'none', border: 'none', color: '#0984e3', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', padding: 0 }}>
-                  ← 条件を変更する
-                </button>
+                <button onClick={handleBackToBearing} style={{ background: 'none', border: 'none', color: '#0984e3', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', padding: 0 }}>← 条件を変更する</button>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={handleToggleFavorite} style={{ padding: '6px 12px', borderRadius: '20px', border: '1.5px solid', borderColor: isFavorite ? '#f7b731' : '#e5e5e7', background: isFavorite ? '#fffdf0' : '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: isFavorite ? '#d4a017' : '#888' }}>
                     {isFavorite ? '⭐ 保存済み' : '☆ お気に入り'}
                   </button>
-                  <button onClick={handleShare} style={{ padding: '6px 12px', borderRadius: '20px', border: '1.5px solid #e5e5e7', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>
-                    📤 シェア
-                  </button>
+                  <button onClick={handleShare} style={{ padding: '6px 12px', borderRadius: '20px', border: '1.5px solid #e5e5e7', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>📤 シェア</button>
                 </div>
               </div>
               {shareMsg && <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#00b894', marginBottom: '8px', fontWeight: '600' }}>{shareMsg}</div>}
