@@ -37,29 +37,20 @@ interface Memo {
   date: string;
 }
 
-interface DayForecast {
-  date: string;
-  label: string;
-  cloudcover: number;
-  weathercode: number;
-  sunrise: string;
-  sunset: string;
-}
-
 function getScene(altitude: number, angleDiff: number, isMorning: boolean, cloudcover?: number, weathercode?: number) {
   const isBad = weathercode != null && weathercode >= 51;
   const isCloudy = cloudcover != null && cloudcover > 80;
-  if (altitude < 0 && isBad) return { label: '夜・雨', emoji: '🌧️', color: '#636e72', grad: 'linear-gradient(135deg,#636e72,#b2bec3)', text: '#fff', isNight: true, photo: '/scene-cloudy-opt.jpg', photoDesc: '雨のため撮影困難です' };
-  if (altitude < 0 && isCloudy) return { label: '夜・曇り', emoji: '☁️', color: '#4a4a6a', grad: 'linear-gradient(135deg,#4a4a6a,#6a6a8a)', text: '#e8e0ff', isNight: true, photo: '/scene-cloudy-opt.jpg', photoDesc: '雲が多く星は見えにくいです' };
-  if (altitude < 0) return { label: '夜・星空撮影', emoji: '🌙', color: '#0f0c29', grad: 'linear-gradient(135deg,#0f0c29,#302b63)', text: '#e8e0ff', isNight: true, photo: '/scene-star-opt.jpg', photoDesc: '満天の星空が広がります' };
-  if (isBad) return { label: '雨・撮影注意', emoji: '🌧️', color: '#636e72', grad: 'linear-gradient(135deg,#636e72,#b2bec3)', text: '#fff', isNight: false, photo: '/scene-cloudy-opt.jpg', photoDesc: '雨天時は幻想的な雰囲気に' };
-  if (isCloudy) return { label: '曇り・光の判断困難', emoji: '☁️', color: '#b2bec3', grad: 'linear-gradient(135deg,#b2bec3,#dfe6e9)', text: '#2d3436', isNight: false, photo: '/scene-cloudy-opt.jpg', photoDesc: '曇りでも柔らかい光が撮れます' };
-  if (altitude < 6)     return { label: isMorning ? '朝のマジックアワー' : '夕方のマジックアワー', emoji: isMorning ? '🌄' : '🌇', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff', isNight: false, photo: '/scene-magic-opt.jpg', photoDesc: '空が劇的な色に染まる魔法の時間' };
-  if (altitude < 20)    return { label: isMorning ? '朝のゴールデンアワー' : '夕方のゴールデンアワー', emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false, photo: '/scene-golden-opt.jpg', photoDesc: '柔らかい黄金色の光が差し込みます' };
-  if (angleDiff <= 30)  return { label: '順光・海の透明感', emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff', isNight: false, photo: '/scene-sunny-opt.jpg', photoDesc: '海の透明感が最大限に引き出されます' };
-  if (angleDiff <= 80)  return { label: 'サイドライト', emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false, photo: '/scene-golden-opt.jpg', photoDesc: '立体感のある印象的な光になります' };
-  if (angleDiff <= 130) return { label: '半逆光・キラメキ', emoji: '🌟', color: '#d4a017', grad: 'linear-gradient(135deg,#d4a017,#f9ca24)', text: '#3d2a00', isNight: false, photo: '/scene-sunny-opt.jpg', photoDesc: '海面がキラキラと輝きます' };
-  return { label: '逆光・シルエット', emoji: '🎭', color: '#e17055', grad: 'linear-gradient(135deg,#e17055,#d63031)', text: '#fff', isNight: false, photo: '/scene-magic-opt.jpg', photoDesc: 'シルエットが映える劇的な一枚に' };
+  if (altitude < 0 && isBad)    return { label: '夜・雨', emoji: '🌧️', color: '#636e72', grad: 'linear-gradient(135deg,#636e72,#b2bec3)', text: '#fff', isNight: true };
+  if (altitude < 0 && isCloudy) return { label: '夜・曇り', emoji: '☁️', color: '#4a4a6a', grad: 'linear-gradient(135deg,#4a4a6a,#6a6a8a)', text: '#e8e0ff', isNight: true };
+  if (altitude < 0)             return { label: '夜・星空撮影', emoji: '🌙', color: '#0f0c29', grad: 'linear-gradient(135deg,#0f0c29,#302b63)', text: '#e8e0ff', isNight: true };
+  if (isBad)    return { label: '雨・撮影注意', emoji: '🌧️', color: '#636e72', grad: 'linear-gradient(135deg,#636e72,#b2bec3)', text: '#fff', isNight: false };
+  if (isCloudy) return { label: '曇り・光の判断困難', emoji: '☁️', color: '#b2bec3', grad: 'linear-gradient(135deg,#b2bec3,#dfe6e9)', text: '#2d3436', isNight: false };
+  if (altitude < 6)     return { label: isMorning ? '朝のマジックアワー' : '夕方のマジックアワー', emoji: isMorning ? '🌄' : '🌇', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff', isNight: false };
+  if (altitude < 20)    return { label: isMorning ? '朝のゴールデンアワー' : '夕方のゴールデンアワー', emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false };
+  if (angleDiff <= 30)  return { label: '順光・海の透明感', emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff', isNight: false };
+  if (angleDiff <= 80)  return { label: 'サイドライト', emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false };
+  if (angleDiff <= 130) return { label: '半逆光・キラメキ', emoji: '🌟', color: '#d4a017', grad: 'linear-gradient(135deg,#d4a017,#f9ca24)', text: '#3d2a00', isNight: false };
+  return { label: '逆光・シルエット', emoji: '🎭', color: '#e17055', grad: 'linear-gradient(135deg,#e17055,#d63031)', text: '#fff', isNight: false };
 }
 
 function getSunDesc(altitude: number, angleDiff: number) {
@@ -168,7 +159,7 @@ export default function Page() {
   const [showNight, setShowNight] = useState(false);
   const [weather, setWeather] = useState<{ cloudcover: number; weathercode: number; temperature: number } | null>(null);
   const [hourlyWeather, setHourlyWeather] = useState<HourlyWeather[]>([]);
-  const [dayForecasts, setDayForecasts] = useState<DayForecast[]>([]);
+  const [dayForecasts, setDayForecasts] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [step, setStep] = useState<'top' | 'search' | 'bearing' | 'result' | 'guide' | 'request'>('top');
@@ -231,7 +222,7 @@ export default function Page() {
           const diffDays = Math.round((date.getTime() - new Date(toDateString(today)).getTime()) / 86400000);
           const label = diffDays === 0 ? '今日' : diffDays === 1 ? '明日' : '明後日';
           const wd = getWeatherLabel(d.daily.cloudcover_mean[i], d.daily.weathercode[i]);
-          return { date: t, label, cloudcover: d.daily.cloudcover_mean[i], weathercode: d.daily.weathercode[i], sunrise: d.daily.sunrise[i], sunset: d.daily.sunset[i], weatherLabel: wd.label, badge: wd.badge, badgeColor: wd.badgeColor };
+          return { date: t, label, cloudcover: d.daily.cloudcover_mean[i], weathercode: d.daily.weathercode[i], weatherLabel: wd.label, badge: wd.badge, badgeColor: wd.badgeColor };
         }));
       }).catch(() => {});
     setIsFavorite(loadFavorites().some(f => f.name === spot.name));
@@ -248,15 +239,17 @@ export default function Page() {
 
   useEffect(() => {
     if (step !== 'bearing' || !pendingSpot || !mapRef.current) return;
-    if (leafletMap.current) return;
-    try {
-      if (mapRef.current._leaflet_id) {
-        mapRef.current._leaflet_id = null;
-      }
-    } catch {}
+    if (leafletMap.current) {
+      leafletMap.current.remove();
+      leafletMap.current = null;
+    }
     const L = (window as any).L;
     if (!L) return;
-    const map = L.map(mapRef.current).setView([pendingSpot.lat, pendingSpot.lng], 14);
+    const mapEl = mapRef.current;
+    if ((mapEl as any)._leaflet_id) {
+      (mapEl as any)._leaflet_id = null;
+    }
+    const map = L.map(mapEl).setView([pendingSpot.lat, pendingSpot.lng], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
     L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
     leafletMap.current = map;
@@ -278,10 +271,15 @@ export default function Page() {
 
   useEffect(() => {
     if (!suggestionResult || !resultMapRef.current || !spot) return;
-    if (resultLeafletMap.current) return;
+    if (resultLeafletMap.current) {
+      resultLeafletMap.current.remove();
+      resultLeafletMap.current = null;
+    }
     const L = (window as any).L;
     if (!L) return;
-    const map = L.map(resultMapRef.current).setView([spot.lat, spot.lng], 13);
+    const mapEl = resultMapRef.current;
+    if ((mapEl as any)._leaflet_id) (mapEl as any)._leaflet_id = null;
+    const map = L.map(mapEl).setView([spot.lat, spot.lng], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
     L.marker([spot.lat, spot.lng]).addTo(map);
     if (suggestionResult.azimuth != null) drawArrow(map, L, spot.lat, spot.lng, suggestionResult.azimuth, '#f39c12');
@@ -423,7 +421,9 @@ export default function Page() {
   };
 
   const handleBackToBearing = () => {
-    setSuggestionResult(null); resultLeafletMap.current = null; setStep('bearing');
+    setSuggestionResult(null);
+    if (resultLeafletMap.current) { resultLeafletMap.current.remove(); resultLeafletMap.current = null; }
+    setStep('bearing');
   };
 
   if (!now) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#888' }}>計算中...</div>;
@@ -500,9 +500,7 @@ export default function Page() {
           ))}
           <div style={{ background: 'linear-gradient(135deg,#0f0c29,#302b63)', borderRadius: '16px', padding: '1.2rem', color: '#fff', marginBottom: '1rem' }}>
             <div style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.5rem' }}>💡 プロカメラマンからのヒント</div>
-            <div style={{ fontSize: '0.82rem', lineHeight: 1.7, opacity: 0.9 }}>
-              マジックアワーは日の出・日の入りの前後30分。この時間帯は空の色が刻々と変わるため、同じ場所でも全く異なる写真が撮れます。三脚を持参して複数枚撮影するのがおすすめです。
-            </div>
+            <div style={{ fontSize: '0.82rem', lineHeight: 1.7, opacity: 0.9 }}>マジックアワーは日の出・日の入りの前後30分。この時間帯は空の色が刻々と変わるため、同じ場所でも全く異なる写真が撮れます。三脚を持参して複数枚撮影するのがおすすめです。</div>
           </div>
           <button onClick={() => setStep('search')} style={{ width: '100%', padding: '1rem', borderRadius: '14px', background: '#e17055', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}>
             さっそく使ってみる →
@@ -527,22 +525,18 @@ export default function Page() {
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
               <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#333', marginBottom: '0.5rem' }}>リクエストを送信しました！</div>
               <div style={{ fontSize: '0.85rem', color: '#888', marginBottom: '2rem' }}>確認後、順次対応いたします。</div>
-              <button onClick={() => { setRequestSent(false); setStep('top'); }} style={{ padding: '0.8rem 2rem', borderRadius: '10px', background: '#e17055', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}>
-                トップに戻る
-              </button>
+              <button onClick={() => { setRequestSent(false); setStep('top'); }} style={{ padding: '0.8rem 2rem', borderRadius: '10px', background: '#e17055', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}>トップに戻る</button>
             </div>
           ) : (
             <div style={{ background: '#fff', borderRadius: '16px', padding: '1.2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem', lineHeight: 1.6 }}>
-                検索で見つからないスポットをリクエストできます。
-              </div>
+              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem', lineHeight: 1.6 }}>検索で見つからないスポットをリクエストできます。</div>
               <div style={{ marginBottom: '1rem' }}>
                 <div style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', marginBottom: '4px' }}>場所名 *</div>
                 <input type="text" value={requestName} onChange={e => setRequestName(e.target.value)} placeholder="例：比嘉ロードパーク"
                   style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '8px', border: '1.5px solid #e5e5e7', fontSize: '0.95rem', color: '#333', boxSizing: 'border-box' }} />
               </div>
               <div style={{ marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', marginBottom: '4px' }}>備考（住所・緯度経度など）</div>
+                <div style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', marginBottom: '4px' }}>備考</div>
                 <textarea value={requestNote} onChange={e => setRequestNote(e.target.value)} placeholder="例：沖縄県うるま市与那城比嘉"
                   style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '8px', border: '1.5px solid #e5e5e7', fontSize: '0.9rem', color: '#333', boxSizing: 'border-box', height: '100px', resize: 'none' }} />
               </div>
@@ -572,20 +566,14 @@ export default function Page() {
             📡 現在地から探す
           </button>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1.5rem' }}>
-            <button onClick={() => setStep('guide')} style={{ padding: '0.8rem', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}>
-              📖 使い方ガイド
-            </button>
-            <button onClick={() => setStep('request')} style={{ padding: '0.8rem', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}>
-              📨 スポットをリクエスト
-            </button>
+            <button onClick={() => setStep('guide')} style={{ padding: '0.8rem', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}>📖 使い方ガイド</button>
+            <button onClick={() => setStep('request')} style={{ padding: '0.8rem', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}>📨 スポットをリクエスト</button>
           </div>
           {favorites.length > 0 && (
             <div style={{ marginBottom: '1rem', textAlign: 'left' }}>
               <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginBottom: '0.5rem', fontWeight: '600' }}>⭐ お気に入りスポット</div>
               {favorites.map((f, i) => (
-                <div key={i} onClick={() => handleSelectFavorite(f)} style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.15)', borderRadius: '10px', marginBottom: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: '#fff' }}>
-                  ⭐ {f.name}
-                </div>
+                <div key={i} onClick={() => handleSelectFavorite(f)} style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.15)', borderRadius: '10px', marginBottom: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: '#fff' }}>⭐ {f.name}</div>
               ))}
             </div>
           )}
@@ -593,9 +581,7 @@ export default function Page() {
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginBottom: '0.5rem', fontWeight: '600' }}>🕐 最近のスポット</div>
               {history.map((h, i) => (
-                <div key={i} onClick={() => { setPendingSpot(h); setQuery(h.name); leafletMap.current = null; setStep('bearing'); }} style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', marginBottom: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: '#fff' }}>
-                  🕐 {h.name}
-                </div>
+                <div key={i} onClick={() => { setPendingSpot(h); setQuery(h.name); leafletMap.current = null; setStep('bearing'); }} style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', marginBottom: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: '#fff' }}>🕐 {h.name}</div>
               ))}
             </div>
           )}
@@ -609,7 +595,6 @@ export default function Page() {
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" async />
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-
         <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ maxWidth: '480px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.7rem' }}>
@@ -651,7 +636,7 @@ export default function Page() {
                 </div>
               )}
               {locateError && <div style={{ fontSize: '0.8rem', color: '#e17055', marginBottom: '6px' }}>{locateError}</div>}
-              {results.length > 0 && (
+              {results.length > 0 && step === 'search' && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', borderRadius: '10px', border: '1px solid #e5e5e7', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 20, marginTop: '4px' }}>
                   {results.map((r, i) => (
                     <div key={i} onClick={() => handleSelectResult(r)} style={{ padding: '0.7rem 1rem', borderBottom: '1px solid #f5f5f7', cursor: 'pointer', fontSize: '0.85rem', color: '#333' }}>
@@ -676,7 +661,6 @@ export default function Page() {
         </div>
 
         <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1rem 1.2rem 2rem' }}>
-
           {step === 'bearing' && pendingSpot && (
             <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <div ref={mapRef} style={{ height: '220px', background: '#e0e0e0', zIndex: 1 }} />
@@ -753,7 +737,6 @@ export default function Page() {
                 </div>
               </div>
               {shareMsg && <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#00b894', marginBottom: '8px', fontWeight: '600' }}>{shareMsg}</div>}
-
               <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
                 📍 {spot.name}
                 <span onClick={() => { setStep('search'); setQuery(''); setSpot(null); setSuggestionResult(null); }} style={{ marginLeft: '12px', color: '#0984e3', cursor: 'pointer', fontSize: '0.8rem' }}>スポットを変更</span>
@@ -767,9 +750,7 @@ export default function Page() {
                     </div>
                     {suggestionResult.type !== 'star' && (
                       <>
-                        <div style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.8rem' }}>
-                          📐 {suggestionResult.azimuth}°（{bearingLabel(suggestionResult.azimuth)}）方向を向く
-                        </div>
+                        <div style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.8rem' }}>📐 {suggestionResult.azimuth}°（{bearingLabel(suggestionResult.azimuth)}）方向を向く</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem', opacity: 0.9 }}>
                           <div>{suggestionResult.type === 'sunrise' ? `🌅 日の出：${suggestionResult.time}` : `🌇 日の入り：${suggestionResult.time}`}</div>
                           <div>{suggestionResult.type === 'sunrise' ? `✨ マジックアワー ${suggestionResult.magicStart}〜${suggestionResult.time}` : `✨ マジックアワー ${suggestionResult.time}〜${suggestionResult.magicEnd}`}</div>
@@ -792,9 +773,7 @@ export default function Page() {
                   </div>
                   {suggestionResult.type !== 'star' && (
                     <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                      <div style={{ padding: '0.8rem 1rem', fontSize: '0.8rem', fontWeight: '600', color: '#333', borderBottom: '1px solid #f0f0f0' }}>
-                        🗺️ カメラを向ける方向（黄色の矢印）
-                      </div>
+                      <div style={{ padding: '0.8rem 1rem', fontSize: '0.8rem', fontWeight: '600', color: '#333', borderBottom: '1px solid #f0f0f0' }}>🗺️ カメラを向ける方向（黄色の矢印）</div>
                       <div ref={resultMapRef} style={{ height: '220px', background: '#e0e0e0' }} />
                     </div>
                   )}
@@ -819,9 +798,6 @@ export default function Page() {
                       </div>
                     </div>
                   )}
-
-                
-
                   <div style={{ background: scene.grad, borderRadius: '20px', padding: '2rem 1.8rem', color: scene.text, marginBottom: '1rem', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '7rem', opacity: 0.15 }}>{scene.emoji}</div>
                     <div style={{ fontSize: '0.8rem', fontWeight: '600', opacity: 0.8, marginBottom: '0.4rem', letterSpacing: '1px', textTransform: 'uppercase' }}>現在の撮影コンディション</div>
@@ -854,12 +830,11 @@ export default function Page() {
                 </div>
               )}
 
-              {/* 3日間天気予報 */}
               {dayForecasts.length > 0 && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📆 3日間の撮影チャンス</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                    {dayForecasts.map((df: any, i) => (
+                    {dayForecasts.map((df: any, i: number) => (
                       <div key={i} style={{ background: '#f5f5f7', borderRadius: '12px', padding: '0.8rem 0.5rem', textAlign: 'center' }}>
                         <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#555', marginBottom: '4px' }}>{df.label}</div>
                         <div style={{ fontSize: '1.3rem', marginBottom: '4px' }}>{df.weatherLabel?.split(' ')[0]}</div>
@@ -902,21 +877,15 @@ export default function Page() {
                   <div style={{ marginBottom: '0.8rem' }}>
                     <textarea value={memoText} onChange={e => setMemoText(e.target.value)} placeholder="撮影設定・感想などを記録..."
                       style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1.5px solid #e5e5e7', fontSize: '0.85rem', color: '#333', boxSizing: 'border-box', height: '80px', resize: 'none', marginBottom: '0.5rem' }} />
-                    <button onClick={handleSaveMemo} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', background: '#0984e3', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}>
-                      保存する
-                    </button>
+                    <button onClick={handleSaveMemo} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', background: '#0984e3', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}>保存する</button>
                   </div>
                 )}
-                {spotMemos.length > 0 ? (
-                  spotMemos.map((m, i) => (
-                    <div key={i} style={{ padding: '0.6rem 0', borderTop: '1px solid #f5f5f7' }}>
-                      <div style={{ fontSize: '0.72rem', color: '#aaa', marginBottom: '2px' }}>{m.date}</div>
-                      <div style={{ fontSize: '0.85rem', color: '#555', lineHeight: 1.5 }}>{m.text}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ fontSize: '0.82rem', color: '#bbb' }}>まだメモがありません</div>
-                )}
+                {spotMemos.length > 0 ? spotMemos.map((m, i) => (
+                  <div key={i} style={{ padding: '0.6rem 0', borderTop: '1px solid #f5f5f7' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#aaa', marginBottom: '2px' }}>{m.date}</div>
+                    <div style={{ fontSize: '0.85rem', color: '#555', lineHeight: 1.5 }}>{m.text}</div>
+                  </div>
+                )) : <div style={{ fontSize: '0.82rem', color: '#bbb' }}>まだメモがありません</div>}
               </div>
 
               <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
