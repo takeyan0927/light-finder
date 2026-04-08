@@ -48,9 +48,21 @@ function getScene(altitude: number, angleDiff: number, isMorning: boolean, cloud
   if (altitude < 6)     return { label: isMorning ? '朝のマジックアワー' : '夕方のマジックアワー', emoji: isMorning ? '🌄' : '🌇', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff', isNight: false };
   if (altitude < 20)    return { label: isMorning ? '朝のゴールデンアワー' : '夕方のゴールデンアワー', emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false };
   if (angleDiff <= 30)  return { label: '順光・透明感MAX', emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff', isNight: false };
-  if (angleDiff <= 80)  return { label: 'サイドライト', emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false };
+  if (angleDiff <= 80)  return { label: '斜光・立体感あり', emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false };
   if (angleDiff <= 130) return { label: '半逆光・キラメキ', emoji: '🌟', color: '#d4a017', grad: 'linear-gradient(135deg,#d4a017,#f9ca24)', text: '#3d2a00', isNight: false };
   return { label: '逆光・シルエット', emoji: '🎭', color: '#e17055', grad: 'linear-gradient(135deg,#e17055,#d63031)', text: '#fff', isNight: false };
+}
+
+function getSceneDesc(label: string): string {
+  if (label.includes('マジックアワー')) return '日の出・日の入り直前。空の色が刻々と変わる魔法の時間';
+  if (label.includes('ゴールデンアワー')) return '柔らかな斜光で被写体に温かみと立体感が出る時間';
+  if (label === '順光・透明感MAX') return '太陽が背後から当たり、被写体の色と透明感が最大になる';
+  if (label === '斜光・立体感あり') return '横から光が当たり、奥行きと立体感が生まれる時間';
+  if (label === '半逆光・キラメキ') return '斜め前から光が当たり、水面や木の葉がキラキラ輝く';
+  if (label === '逆光・シルエット') return '被写体が影になり、シルエットや光のフレアを狙える';
+  if (label.includes('曇り')) return '光が散乱して柔らかくなるが、色の鮮明さは落ちる';
+  if (label.includes('雨')) return '雨天のため通常の撮影には不向き';
+  return '';
 }
 
 function getSunDesc(altitude: number, angleDiff: number) {
@@ -76,13 +88,13 @@ function getMoonForDate(date: Date, cloudcover?: number) {
 }
 
 function getWeatherLabel(cloudcover: number, weathercode: number) {
-  if (weathercode >= 61) return { label: '🌧️ 雨', badge: '撮影困難', badgeColor: '#e17055' };
-  if (weathercode >= 51) return { label: '🌦️ 小雨', badge: '撮影注意', badgeColor: '#fdcb6e' };
-  if (weathercode >= 45) return { label: '🌫️ 霧', badge: '撮影注意', badgeColor: '#fdcb6e' };
-  if (cloudcover <= 20)  return { label: '☀️ 快晴', badge: '撮影最適', badgeColor: '#00b894' };
-  if (cloudcover <= 50)  return { label: '🌤️ 晴れ', badge: '撮影良好', badgeColor: '#0984e3' };
-  if (cloudcover <= 80)  return { label: '⛅ 曇り', badge: '撮影可能', badgeColor: '#636e72' };
-  return { label: '☁️ 厚曇り', badge: '撮影困難', badgeColor: '#e17055' };
+  if (weathercode >= 61) return { label: '🌧️ 雨', badge: '×', badgeColor: '#e17055' };
+  if (weathercode >= 51) return { label: '🌦️ 小雨', badge: '△', badgeColor: '#fdcb6e' };
+  if (weathercode >= 45) return { label: '🌫️ 霧', badge: '△', badgeColor: '#fdcb6e' };
+  if (cloudcover <= 20)  return { label: '☀️ 快晴', badge: '◎', badgeColor: '#00b894' };
+  if (cloudcover <= 50)  return { label: '🌤️ 晴れ', badge: '○', badgeColor: '#0984e3' };
+  if (cloudcover <= 80)  return { label: '⛅ 曇り', badge: '△', badgeColor: '#636e72' };
+  return { label: '☁️ 厚曇り', badge: '×', badgeColor: '#e17055' };
 }
 
 function getSunDirection(date: Date, lat: number, lng: number, type: 'sunrise' | 'sunset') {
@@ -112,57 +124,59 @@ function toDateString(date: Date) {
   return date.toISOString().split('T')[0];
 }
 
-// ---- タイムライン用ヘルパー ----
-function getLightTypeLabel(angleDiff: number, altitude: number, isMorning: boolean): { label: string; color: string } {
-  if (altitude < 6) return { label: isMorning ? 'マジック朝' : 'マジック夕', color: '#c0392b' };
-  if (altitude < 20) return { label: isMorning ? 'ゴールデン朝' : 'ゴールデン夕', color: '#e67e22' };
-  if (angleDiff <= 30) return { label: '完全順光', color: '#e17055' };
-  if (angleDiff <= 80) return { label: '順光', color: '#e17055' };
-  if (angleDiff <= 130) return { label: 'サイド光', color: '#b2bec3' };
-  return { label: '逆光', color: '#636e72' };
+function getLightTypeLabel(angleDiff: number, altitude: number, isMorning: boolean): { label: string; short: string; color: string } {
+  if (altitude < 6) return { label: isMorning ? '朝マジック' : '夕マジック', short: isMorning ? '🌄朝' : '🌇夕', color: '#c0392b' };
+  if (altitude < 20) return { label: isMorning ? '朝ゴールデン' : '夕ゴールデン', short: isMorning ? '✨朝G' : '✨夕G', color: '#e67e22' };
+  if (angleDiff <= 30) return { label: '完全順光', short: '順光◎', color: '#0984e3' };
+  if (angleDiff <= 80) return { label: '斜光', short: '斜光', color: '#00b894' };
+  if (angleDiff <= 130) return { label: '半逆光', short: '半逆光', color: '#d4a017' };
+  return { label: '逆光', short: '逆光', color: '#636e72' };
 }
 
-function getTimelineComment(
-  lightLabel: string,
-  altitude: number,
-  angleDiff: number,
-  spotName: string
-): string {
-  // スポット名から場所タイプを推定
+function getTimelineComment(lightLabel: string, altitude: number, angleDiff: number, spotName: string): string {
   const isBeach = /ビーチ|浜|海岸|岬|島|珊瑚|サンゴ|湾/.test(spotName);
   const isMountain = /山|岳|峠|高原|丘|展望台/.test(spotName);
   const isCity = /駅|街|市|公園|橋|タワー|ビル/.test(spotName);
-
-  if (lightLabel === 'マジック朝' || lightLabel === 'マジック夕') {
-    if (isBeach) return lightLabel.includes('朝') ? '砂浜が金色に染まる。水面がオレンジに輝く' : '空と海が赤く染まる。この色は10分で消える';
-    if (isMountain) return lightLabel.includes('朝') ? '山肌に最初の光が当たる神秘的な瞬間' : '稜線が燃えるように赤く染まる';
-    if (isCity) return lightLabel.includes('朝') ? '街灯と朝焼けが混ざる幻想的な時間' : '街の光と夕焼けが重なるゴールデンタイム';
-    return lightLabel.includes('朝') ? '空が刻々と変わるマジックアワー。三脚必携' : '空のグラデーションが最大になる時間';
+  if (lightLabel === '朝マジック') {
+    if (isBeach) return '砂浜が金色に染まる。水面がオレンジに輝く';
+    if (isMountain) return '山肌に最初の光が当たる神秘的な瞬間';
+    if (isCity) return '街灯と朝焼けが混ざる幻想的な時間';
+    return '空が刻々と変わる。色の変化を連写で';
   }
-  if (lightLabel === 'ゴールデン朝' || lightLabel === 'ゴールデン夕') {
-    if (isBeach) return lightLabel.includes('朝') ? '柔らかい光が海面を照らす。色温度が最高' : '波頭がキラキラと光り始める時間';
-    if (isMountain) return lightLabel.includes('朝') ? '低角度の光で山の立体感が際立つ' : '山肌の陰影がドラマチックに深まる';
-    return lightLabel.includes('朝') ? '影が長く伸びて被写体に奥行きが出る' : '光が柔らかくなり肌や景色が美しく映る';
+  if (lightLabel === '夕マジック') {
+    if (isBeach) return '空と海が赤く染まる。この色は10分で消える';
+    if (isMountain) return '稜線が燃えるように赤く染まる';
+    if (isCity) return '街の光と夕焼けが重なる時間';
+    return '空のグラデーションが最大になる時間';
+  }
+  if (lightLabel === '朝ゴールデン') {
+    if (isBeach) return '柔らかい光が海面を照らす。色温度が最高';
+    if (isMountain) return '低角度の光で山の立体感が際立つ';
+    return '影が長く伸びて奥行きのある構図が作れる';
+  }
+  if (lightLabel === '夕ゴールデン') {
+    if (isBeach) return '波頭がキラキラと光り始める時間';
+    if (isMountain) return '山肌の陰影がドラマチックに深まる';
+    return '光が柔らかくなり景色が温かみを帯びる';
   }
   if (lightLabel === '完全順光') {
-    if (isBeach) return 'エメラルドグリーンが最も濃く出る。海の透明感MAX';
-    if (isMountain) return '山の全体が均一に明るく、細部まで鮮明に撮れる';
-    if (isCity) return '建物の色が正確に出る。看板・サインも鮮明';
-    return '被写体全体が均一に明るく、色が正確に出る時間';
+    if (isBeach) return 'エメラルドグリーンが最も濃く出る。透明感MAX';
+    if (isMountain) return '山全体が均一に明るく、細部まで鮮明に';
+    if (isCity) return '建物の色が正確に出る。看板も鮮明';
+    return '被写体全体が均一に明るく、色が正確に出る';
   }
-  if (lightLabel === '順光') {
-    if (isBeach) return '海の青みがしっかり出る。光がやや硬めになる';
-    if (isMountain) return '稜線がくっきり出るが影が少なく立体感はやや弱め';
-    return '撮影しやすい安定した光。コントラストがやや強め';
+  if (lightLabel === '斜光') {
+    if (isBeach) return '海の青みがしっかり出る。光がやや硬め';
+    if (isMountain) return '稜線がくっきり出て、立体感もある';
+    return '安定した光で撮りやすい時間帯';
   }
-  if (lightLabel === 'サイド光') {
-    if (isBeach) return '波の陰影が面白く出る。テクスチャーが強調される';
+  if (lightLabel === '半逆光') {
+    if (isBeach) return '波の陰影が面白く出る。テクスチャーが強調';
     if (isMountain) return '谷の陰影が深まり、地形の迫力が増す';
     return '被写体に立体感が出る。影の使い方がポイント';
   }
-  // 逆光
-  if (isBeach) return '海面がキラキラと輝くシルエット撮影のチャンス';
-  if (isMountain) return '山のシルエットが浮かび上がる幻想的な構図に';
+  if (isBeach) return '海面がキラキラ輝くシルエット撮影のチャンス';
+  if (isMountain) return '山のシルエットが浮かぶ幻想的な構図に';
   return 'シルエット・フレア狙いの上級者向け時間帯';
 }
 
@@ -179,7 +193,6 @@ function StarStr(count: number) {
   return '★'.repeat(count) + '☆'.repeat(5 - count);
 }
 
-// ---- ロゴSVG ----
 function CameraLogo({ size = 72 }: { size?: number }) {
   return (
     <svg width={size} height={Math.round(size * 0.75)} viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg">
@@ -559,7 +572,6 @@ export default function Page() {
     return { h, m, sc, lt, stars, comment, matchScore: an.matchScore, isNow };
   }) : [];
 
-  // 今すぐ撮れるか判定
   const nowEntry = hourlyList.find(e => e.isNow) ?? hourlyList[now.getHours() * 2];
   const nowScore = nowEntry?.matchScore ?? 0;
   const nowStars = nowEntry?.stars ?? 0;
@@ -608,7 +620,7 @@ export default function Page() {
           ))}
           <div style={{ background: 'linear-gradient(135deg,#0f0c29,#302b63)', borderRadius: '16px', padding: '1.2rem', color: '#fff', marginBottom: '1rem' }}>
             <div style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.5rem' }}>💡 プロカメラマンからのヒント</div>
-            <div style={{ fontSize: '0.82rem', lineHeight: 1.7, opacity: 0.9 }}>マジックアワーは日の出・日の入りの前後30分。この時間帯は空の色が刻々と変わるため、同じ場所でも全く異なる写真が撮れます。三脚を持参して複数枚撮影するのがおすすめです。</div>
+            <div style={{ fontSize: '0.82rem', lineHeight: 1.7, opacity: 0.9 }}>マジックアワーは日の出・日の入りの前後30分。この時間帯は空の色が刻々と変わるため、同じ場所でも全く異なる写真が撮れます。複数枚撮影して光の変化を記録するのがおすすめです。</div>
           </div>
           <button onClick={() => setStep('search')} style={{ width: '100%', padding: '1rem', borderRadius: '14px', background: '#e17055', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}>
             さっそく使ってみる →
@@ -663,7 +675,6 @@ export default function Page() {
     return (
       <main style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#0f0c29 0%,#302b63 50%,#e17055 100%)', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ textAlign: 'center', color: '#fff', maxWidth: '400px', width: '100%' }}>
-          {/* ---- カメラロゴ（🌞から変更） ---- */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.2rem' }}>
             <CameraLogo size={88} />
           </div>
@@ -851,12 +862,9 @@ export default function Page() {
                 <span onClick={() => { setStep('search'); setQuery(''); setSpot(null); setSuggestionResult(null); }} style={{ marginLeft: '12px', color: '#0984e3', cursor: 'pointer', fontSize: '0.8rem' }}>スポットを変更</span>
               </div>
 
-              {/* ---- 今すぐ撮れるか？カード ---- */}
               {!suggestionResult && nowJudge && (
                 <div style={{ borderRadius: '18px', background: nowJudge.bg, border: `1.5px solid ${nowJudge.border}`, padding: '1.2rem 1.4rem', marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: '700', color: nowJudge.color, letterSpacing: '2px', marginBottom: '8px' }}>
-                    ▶ 今すぐ撮れるか？
-                  </div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: '700', color: nowJudge.color, letterSpacing: '2px', marginBottom: '8px' }}>▶ 今すぐ撮れるか？</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <div>
                       <div style={{ fontSize: '44px', fontWeight: '700', color: nowJudge.color, lineHeight: 1 }}>{nowScore}</div>
@@ -865,7 +873,7 @@ export default function Page() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '15px', fontWeight: '700', color: '#333', marginBottom: '3px' }}>{nowLt?.label}</div>
                       <div style={{ fontSize: '12px', color: '#666', lineHeight: 1.5, marginBottom: '6px' }}>{nowComment}</div>
-                      <div style={{ fontSize: '13px', color: '#c8a84b' }}>{StarStr(nowStars)}　<span style={{ fontSize: '11px', color: '#888' }}>総合おすすめ</span></div>
+                      <div style={{ fontSize: '13px', color: '#c8a84b' }}>{StarStr(nowStars)}<span style={{ fontSize: '11px', color: '#888', marginLeft: '6px' }}>総合おすすめ度</span></div>
                     </div>
                   </div>
                   <div style={{ marginTop: '12px', display: 'inline-block', background: nowJudge.color, color: '#fff', fontSize: '12px', fontWeight: '700', padding: '7px 18px', borderRadius: '20px' }}>
@@ -930,21 +938,17 @@ export default function Page() {
                       </div>
                     </div>
                   )}
+                  {/* 高度・方位・角度差は非表示 */}
                   <div style={{ background: scene.grad, borderRadius: '20px', padding: '2rem 1.8rem', color: scene.text, marginBottom: '1rem', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '7rem', opacity: 0.15 }}>{scene.emoji}</div>
                     <div style={{ fontSize: '0.8rem', fontWeight: '600', opacity: 0.8, marginBottom: '0.4rem', letterSpacing: '1px', textTransform: 'uppercase' }}>現在の撮影コンディション</div>
                     <div style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '0.8rem', letterSpacing: '-0.5px' }}>{scene.emoji} {scene.label}</div>
                     {sunPos.altitude >= 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>☀️ {sunDesc.altDesc}</div>
                         {sunDesc.dirDesc && <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '500' }}>📐 {sunDesc.dirDesc}</div>}
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '0.8rem', opacity: 0.7 }}>
-                      <div style={{ fontSize: '0.75rem' }}>高度 {Math.round(sunPos.altitude)}°</div>
-                      <div style={{ fontSize: '0.75rem' }}>方位 {Math.round(sunPos.azimuth)}°</div>
-                      <div style={{ fontSize: '0.75rem' }}>角度差 {Math.round(result.angleDiff)}°</div>
-                    </div>
                   </div>
                 </>
               )}
@@ -952,25 +956,34 @@ export default function Page() {
               {sceneMap.size > 0 && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📅 今日撮れるシーン</div>
-                  {Array.from(sceneMap.entries()).map(([label, { hours, sc }]) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f7' }}>
-                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: sc.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.85rem', fontWeight: '600', flex: 1, color: '#333' }}>{sc.emoji} {label}</span>
-                      <span style={{ fontSize: '0.8rem', color: '#666' }}>{hours[0]}{hours.length > 1 ? `〜${hours[hours.length - 1]}` : ''}</span>
-                    </div>
-                  ))}
+                  {Array.from(sceneMap.entries()).map(([label, { hours, sc }]) => {
+                    const desc = getSceneDesc(label);
+                    const startH = hours[0];
+                    const endH = hours.length > 1 ? hours[hours.length - 1] : null;
+                    return (
+                      <div key={label} style={{ padding: '0.55rem 0', borderBottom: '1px solid #f5f5f7' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: desc ? '2px' : 0 }}>
+                          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: sc.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: '0.85rem', fontWeight: '700', flex: 1, color: '#333' }}>{sc.emoji} {label}</span>
+                          <span style={{ fontSize: '0.8rem', color: '#666', flexShrink: 0 }}>{startH}{endH ? `〜${endH}` : ''}</span>
+                        </div>
+                        {desc && <div style={{ fontSize: '0.75rem', color: '#888', paddingLeft: '20px', lineHeight: 1.5 }}>{desc}</div>}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
               {dayForecasts.length > 0 && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📆 3日間の撮影チャンス</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '4px' }}>📆 3日間の撮影チャンス</div>
+                  <div style={{ fontSize: '0.72rem', color: '#aaa', marginBottom: '0.8rem' }}>◎快晴　○晴れ　△曇り・小雨　×雨・厚曇り</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
                     {dayForecasts.map((df: any, i: number) => (
                       <div key={i} style={{ background: '#f5f5f7', borderRadius: '12px', padding: '0.8rem 0.5rem', textAlign: 'center' }}>
                         <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#555', marginBottom: '4px' }}>{df.label}</div>
                         <div style={{ fontSize: '1.3rem', marginBottom: '4px' }}>{df.weatherLabel?.split(' ')[0]}</div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: '700', color: df.badgeColor, background: df.badgeColor + '22', borderRadius: '20px', padding: '2px 6px', display: 'inline-block' }}>{df.badge}</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '800', color: df.badgeColor }}>{df.badge}</div>
                       </div>
                     ))}
                   </div>
@@ -985,7 +998,7 @@ export default function Page() {
                       <div style={{ fontSize: '1.4rem', marginBottom: '4px' }}>{wd.label}</div>
                       <div style={{ fontSize: '0.75rem', color: '#444' }}>雲量 {weather.cloudcover}%</div>
                       <div style={{ fontSize: '0.75rem', color: '#444' }}>気温 {weather.temperature}℃</div>
-                      <div style={{ marginTop: '8px', display: 'inline-block', padding: '2px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', background: wd.badgeColor + '22', color: wd.badgeColor }}>{wd.badge}</div>
+                      <div style={{ marginTop: '8px', fontSize: '1.2rem', fontWeight: '800', color: wd.badgeColor }}>{wd.badge}</div>
                     </>
                   ) : <div style={{ color: '#aaa', fontSize: '0.85rem' }}>取得中...</div>}
                 </div>
@@ -1020,7 +1033,6 @@ export default function Page() {
                 )) : <div style={{ fontSize: '0.82rem', color: '#bbb' }}>まだメモがありません</div>}
               </div>
 
-              {/* ---- 改善版タイムライン ---- */}
               <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.2rem 0.4rem' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>今日のタイムライン</div>
@@ -1028,58 +1040,48 @@ export default function Page() {
                     {showNight ? '夜を隠す' : '夜も表示'}
                   </button>
                 </div>
-
-                {/* 凡例 */}
                 <div style={{ margin: '0 1.2rem 0.6rem', padding: '8px 12px', background: '#f8f8f8', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#888' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <div style={{ width: '8px', height: '5px', borderRadius: '2px', background: '#ddd' }}/>
                       <div style={{ width: '24px', height: '5px', borderRadius: '2px', background: '#e17055' }}/>
                     </div>
-                    <span>バーが長い = 太陽がカメラ方向と一致（順光に近い）</span>
+                    <span>バーが長い = 太陽とカメラが正面で一致（順光）</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#888' }}>
                     <span style={{ color: '#c8a84b', fontSize: '12px', letterSpacing: '-1px' }}>★☆☆☆☆→★★★★★</span>
-                    <span>星が多いほど総合的に撮影に適した時間帯</span>
+                    <span>星が多いほど撮影に適した時間帯</span>
                   </div>
                 </div>
-
-                {/* 列ヘッダー */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 1rem 6px', borderBottom: '1px solid #f0f0f0' }}>
                   <div style={{ width: '44px', fontSize: '10px', color: '#aaa', flexShrink: 0 }}>時刻</div>
                   <div style={{ width: '52px', fontSize: '10px', color: '#aaa', flexShrink: 0 }}>光の角度</div>
-                  <div style={{ width: '54px', fontSize: '10px', color: '#aaa', flexShrink: 0 }}>光の種類</div>
+                  <div style={{ width: '48px', fontSize: '10px', color: '#aaa', flexShrink: 0 }}>光の種類</div>
                   <div style={{ flex: 1, fontSize: '10px', color: '#aaa' }}>コメント</div>
-                  <div style={{ width: '60px', fontSize: '10px', color: '#aaa', flexShrink: 0, textAlign: 'right' }}>総合</div>
+                  <div style={{ width: '56px', fontSize: '10px', color: '#aaa', flexShrink: 0, textAlign: 'right' }}>総合</div>
                 </div>
-
                 {visibleList.map(({ h, m, sc, lt, stars, comment, matchScore, isNow }) => (
                   <div key={`${h}-${m}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 1rem', background: isNow ? '#fff8f0' : '#fff', borderTop: '1px solid #f5f5f7' }}>
-                    {/* 時刻 */}
                     <span style={{ width: '44px', fontSize: '12px', fontWeight: isNow ? '700' : '400', color: isNow ? '#e17055' : '#999', flexShrink: 0 }}>
                       {h}:{String(m).padStart(2, '0')}
                     </span>
-                    {/* 光の角度バー */}
                     <div style={{ width: '52px', flexShrink: 0 }}>
                       {sc.isNight ? (
                         <div style={{ width: '52px', height: '5px', borderRadius: '2px', background: '#f0f0f0' }} />
                       ) : (
-                        <div style={{ width: '52px', height: '5px', borderRadius: '2px', background: '#eee', position: 'relative' }}>
-                          <div style={{ width: `${Math.max(4, matchScore)}%`, height: '100%', borderRadius: '2px', background: lt.color, transition: 'width 0.3s' }} />
+                        <div style={{ width: '52px', height: '5px', borderRadius: '2px', background: '#eee' }}>
+                          <div style={{ width: `${Math.max(4, matchScore)}%`, height: '100%', borderRadius: '2px', background: lt.color }} />
                         </div>
                       )}
                     </div>
-                    {/* 光の種類 */}
-                    <div style={{ width: '54px', fontSize: '11px', fontWeight: '600', color: sc.isNight ? '#aaa' : lt.color, flexShrink: 0, lineHeight: 1.3 }}>
-                      {sc.isNight ? sc.emoji : lt.label}
+                    <div style={{ width: '48px', fontSize: '11px', fontWeight: '600', color: sc.isNight ? '#aaa' : lt.color, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                      {sc.isNight ? sc.emoji : lt.short}
                     </div>
-                    {/* コメント */}
                     <div style={{ flex: 1, fontSize: '11px', color: isNow ? '#444' : '#777', lineHeight: 1.4 }}>
                       {sc.isNight ? sc.label : comment}
                       {isNow && <span style={{ marginLeft: '4px', color: '#e17055', fontWeight: '700', fontSize: '10px' }}>← 今</span>}
                     </div>
-                    {/* 星 */}
-                    <div style={{ width: '60px', fontSize: '11px', color: '#c8a84b', flexShrink: 0, textAlign: 'right', letterSpacing: '-1px' }}>
+                    <div style={{ width: '56px', fontSize: '10px', color: '#c8a84b', flexShrink: 0, textAlign: 'right', letterSpacing: '-1px' }}>
                       {sc.isNight ? '' : StarStr(stars)}
                     </div>
                   </div>
