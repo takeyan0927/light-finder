@@ -47,7 +47,7 @@ function getScene(altitude: number, angleDiff: number, isMorning: boolean, cloud
   if (isCloudy) return { label: '曇り・光の判断困難', emoji: '☁️', color: '#b2bec3', grad: 'linear-gradient(135deg,#b2bec3,#dfe6e9)', text: '#2d3436', isNight: false };
   if (altitude < 6)     return { label: isMorning ? '朝のマジックアワー' : '夕方のマジックアワー', emoji: isMorning ? '🌄' : '🌇', color: '#c0392b', grad: 'linear-gradient(135deg,#c0392b,#f39c12)', text: '#fff', isNight: false };
   if (altitude < 20)    return { label: isMorning ? '朝のゴールデンアワー' : '夕方のゴールデンアワー', emoji: '✨', color: '#e67e22', grad: 'linear-gradient(135deg,#e67e22,#f1c40f)', text: '#3d2200', isNight: false };
-  if (angleDiff <= 30)  return { label: '順光・海の透明感', emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff', isNight: false };
+  if (angleDiff <= 30)  return { label: '順光・透明感MAX', emoji: '🌊', color: '#0984e3', grad: 'linear-gradient(135deg,#0984e3,#00cec9)', text: '#fff', isNight: false };
   if (angleDiff <= 80)  return { label: 'サイドライト', emoji: '💎', color: '#00b894', grad: 'linear-gradient(135deg,#00b894,#55efc4)', text: '#003d30', isNight: false };
   if (angleDiff <= 130) return { label: '半逆光・キラメキ', emoji: '🌟', color: '#d4a017', grad: 'linear-gradient(135deg,#d4a017,#f9ca24)', text: '#3d2a00', isNight: false };
   return { label: '逆光・シルエット', emoji: '🎭', color: '#e17055', grad: 'linear-gradient(135deg,#e17055,#d63031)', text: '#fff', isNight: false };
@@ -110,6 +110,97 @@ function formatTime(date: Date) {
 
 function toDateString(date: Date) {
   return date.toISOString().split('T')[0];
+}
+
+// ---- タイムライン用ヘルパー ----
+function getLightTypeLabel(angleDiff: number, altitude: number, isMorning: boolean): { label: string; color: string } {
+  if (altitude < 6) return { label: isMorning ? 'マジック朝' : 'マジック夕', color: '#c0392b' };
+  if (altitude < 20) return { label: isMorning ? 'ゴールデン朝' : 'ゴールデン夕', color: '#e67e22' };
+  if (angleDiff <= 30) return { label: '完全順光', color: '#e17055' };
+  if (angleDiff <= 80) return { label: '順光', color: '#e17055' };
+  if (angleDiff <= 130) return { label: 'サイド光', color: '#b2bec3' };
+  return { label: '逆光', color: '#636e72' };
+}
+
+function getTimelineComment(
+  lightLabel: string,
+  altitude: number,
+  angleDiff: number,
+  spotName: string
+): string {
+  // スポット名から場所タイプを推定
+  const isBeach = /ビーチ|浜|海岸|岬|島|珊瑚|サンゴ|湾/.test(spotName);
+  const isMountain = /山|岳|峠|高原|丘|展望台/.test(spotName);
+  const isCity = /駅|街|市|公園|橋|タワー|ビル/.test(spotName);
+
+  if (lightLabel === 'マジック朝' || lightLabel === 'マジック夕') {
+    if (isBeach) return lightLabel.includes('朝') ? '砂浜が金色に染まる。水面がオレンジに輝く' : '空と海が赤く染まる。この色は10分で消える';
+    if (isMountain) return lightLabel.includes('朝') ? '山肌に最初の光が当たる神秘的な瞬間' : '稜線が燃えるように赤く染まる';
+    if (isCity) return lightLabel.includes('朝') ? '街灯と朝焼けが混ざる幻想的な時間' : '街の光と夕焼けが重なるゴールデンタイム';
+    return lightLabel.includes('朝') ? '空が刻々と変わるマジックアワー。三脚必携' : '空のグラデーションが最大になる時間';
+  }
+  if (lightLabel === 'ゴールデン朝' || lightLabel === 'ゴールデン夕') {
+    if (isBeach) return lightLabel.includes('朝') ? '柔らかい光が海面を照らす。色温度が最高' : '波頭がキラキラと光り始める時間';
+    if (isMountain) return lightLabel.includes('朝') ? '低角度の光で山の立体感が際立つ' : '山肌の陰影がドラマチックに深まる';
+    return lightLabel.includes('朝') ? '影が長く伸びて被写体に奥行きが出る' : '光が柔らかくなり肌や景色が美しく映る';
+  }
+  if (lightLabel === '完全順光') {
+    if (isBeach) return 'エメラルドグリーンが最も濃く出る。海の透明感MAX';
+    if (isMountain) return '山の全体が均一に明るく、細部まで鮮明に撮れる';
+    if (isCity) return '建物の色が正確に出る。看板・サインも鮮明';
+    return '被写体全体が均一に明るく、色が正確に出る時間';
+  }
+  if (lightLabel === '順光') {
+    if (isBeach) return '海の青みがしっかり出る。光がやや硬めになる';
+    if (isMountain) return '稜線がくっきり出るが影が少なく立体感はやや弱め';
+    return '撮影しやすい安定した光。コントラストがやや強め';
+  }
+  if (lightLabel === 'サイド光') {
+    if (isBeach) return '波の陰影が面白く出る。テクスチャーが強調される';
+    if (isMountain) return '谷の陰影が深まり、地形の迫力が増す';
+    return '被写体に立体感が出る。影の使い方がポイント';
+  }
+  // 逆光
+  if (isBeach) return '海面がキラキラと輝くシルエット撮影のチャンス';
+  if (isMountain) return '山のシルエットが浮かび上がる幻想的な構図に';
+  return 'シルエット・フレア狙いの上級者向け時間帯';
+}
+
+function getStars(matchScore: number, cloudcover?: number, weathercode?: number): number {
+  let base = Math.round((matchScore / 100) * 5);
+  if (weathercode != null && weathercode >= 61) base = Math.max(0, base - 3);
+  else if (weathercode != null && weathercode >= 51) base = Math.max(0, base - 2);
+  else if (cloudcover != null && cloudcover > 80) base = Math.max(0, base - 2);
+  else if (cloudcover != null && cloudcover > 50) base = Math.max(0, base - 1);
+  return Math.max(1, Math.min(5, base));
+}
+
+function StarStr(count: number) {
+  return '★'.repeat(count) + '☆'.repeat(5 - count);
+}
+
+// ---- ロゴSVG ----
+function CameraLogo({ size = 72 }: { size?: number }) {
+  return (
+    <svg width={size} height={Math.round(size * 0.75)} viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="18" width="90" height="62" rx="8" fill="#1a1d2e" stroke="#3a3f5c" strokeWidth="1.2"/>
+      <rect x="86" y="23" width="22" height="52" rx="6" fill="#141620" stroke="#3a3f5c" strokeWidth="1.2"/>
+      <rect x="20" y="12" width="28" height="9" rx="3" fill="#1a1d2e" stroke="#3a3f5c" strokeWidth="1"/>
+      <rect x="66" y="10" width="20" height="10" rx="3" fill="#1a1d2e" stroke="#3a3f5c" strokeWidth="1"/>
+      <ellipse cx="80" cy="17" rx="7" ry="5" fill="#e8c060"/>
+      <ellipse cx="80" cy="16" rx="5" ry="3.5" fill="#f0d070"/>
+      <circle cx="52" cy="49" r="30" fill="#141620" stroke="#3a3f5c" strokeWidth="1"/>
+      <circle cx="52" cy="49" r="26" fill="#0d0f1a" stroke="#2a2f4a" strokeWidth="0.8"/>
+      <circle cx="52" cy="49" r="22" fill="#0a0c14"/>
+      {[0, 51.4, 102.8, 154.2, 205.6, 257, 308.6].map((deg, i) => (
+        <path key={i} d="M0,-14 C5,-9 6,-2 2,2 C0,5 -3,6 -5,4 C-2,1 1,-5 0,-14Z"
+          fill="#c8a84b" opacity={0.88}
+          transform={`translate(52,49) rotate(${deg})`} />
+      ))}
+      <circle cx="52" cy="49" r="7" fill="#050608"/>
+      <circle cx="52" cy="49" r="5" fill="#080a10"/>
+    </svg>
+  );
 }
 
 const HISTORY_KEY = 'zekkei-finder-history';
@@ -237,10 +328,8 @@ export default function Page() {
     }, 500);
   }, [query]);
 
-  // 地図初期化（Leaflet読み込み待ち対応）
   useEffect(() => {
     if (step !== 'bearing' || !pendingSpot || !mapRef.current) return;
-
     const initMap = () => {
       const L = (window as any).L;
       if (!L) return;
@@ -253,13 +342,8 @@ export default function Page() {
       L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
       leafletMap.current = map;
     };
-
-    if ((window as any).L) {
-      initMap();
-    } else {
-      const timer = setInterval(() => {
-        if ((window as any).L) { clearInterval(timer); initMap(); }
-      }, 100);
+    if ((window as any).L) { initMap(); } else {
+      const timer = setInterval(() => { if ((window as any).L) { clearInterval(timer); initMap(); } }, 100);
       return () => clearInterval(timer);
     }
   }, [step, pendingSpot]);
@@ -278,10 +362,8 @@ export default function Page() {
     arrowLayer.current.addTo(leafletMap.current);
   }, [manualBearing, pendingSpot]);
 
-  // 提案結果の地図（Leaflet読み込み待ち対応）
   useEffect(() => {
     if (!suggestionResult || !resultMapRef.current || !spot) return;
-
     const initResultMap = () => {
       const L = (window as any).L;
       if (!L) return;
@@ -295,13 +377,8 @@ export default function Page() {
       if (suggestionResult.azimuth != null) drawArrow(map, L, spot.lat, spot.lng, suggestionResult.azimuth, '#f39c12');
       resultLeafletMap.current = map;
     };
-
-    if ((window as any).L) {
-      initResultMap();
-    } else {
-      const timer = setInterval(() => {
-        if ((window as any).L) { clearInterval(timer); initResultMap(); }
-      }, 100);
+    if ((window as any).L) { initResultMap(); } else {
+      const timer = setInterval(() => { if ((window as any).L) { clearInterval(timer); initResultMap(); } }, 100);
       return () => clearInterval(timer);
     }
   }, [suggestionResult, spot]);
@@ -407,7 +484,7 @@ export default function Page() {
 
   const handleShare = () => {
     if (!spot || !scene) return;
-    const text = `📍 ${spot.name}\n${scene.emoji} ${scene.label}\n\n撮影タイミングをチェック👇\nhttps://light-finder-sigma.vercel.app\n\n#絶景ファインダー #写真撮影 #絶景`;
+    const text = `📍 ${spot.name}\n${scene.emoji} ${scene.label}\n\n撮影タイミングをチェック👇\nhttps://zekkei-finder.com\n\n#絶景ファインダー #写真撮影 #絶景`;
     if (navigator.share) {
       navigator.share({ text }).catch(() => {});
     } else {
@@ -475,9 +552,24 @@ export default function Page() {
       return wDate.getHours() === h && wDate.getDate() === d.getDate();
     });
     const sc = getScene(sp.altitude, an.angleDiff, isMorn, hw?.cloudcover, hw?.weathercode);
+    const lt = getLightTypeLabel(an.angleDiff, sp.altitude, isMorn);
+    const stars = sc.isNight ? 0 : getStars(an.matchScore, hw?.cloudcover, hw?.weathercode);
+    const comment = sc.isNight ? '' : getTimelineComment(lt.label, sp.altitude, an.angleDiff, spot.name);
     const isNow = now.getHours() === h && (m === 0 ? now.getMinutes() < 30 : now.getMinutes() >= 30);
-    return { h, m, sc, isNow };
+    return { h, m, sc, lt, stars, comment, matchScore: an.matchScore, isNow };
   }) : [];
+
+  // 今すぐ撮れるか判定
+  const nowEntry = hourlyList.find(e => e.isNow) ?? hourlyList[now.getHours() * 2];
+  const nowScore = nowEntry?.matchScore ?? 0;
+  const nowStars = nowEntry?.stars ?? 0;
+  const nowLt = nowEntry?.lt;
+  const nowComment = nowEntry?.comment ?? '';
+  const nowIsNight = nowEntry?.sc?.isNight ?? false;
+  const nowJudge = nowIsNight ? null :
+    nowStars >= 4 ? { level: 'HIGH', label: '今すぐ行く価値あり', color: '#e17055', bg: 'rgba(225,112,85,0.12)', border: 'rgba(225,112,85,0.35)' } :
+    nowStars >= 3 ? { level: 'MID', label: '悪くない。行ける距離なら◎', color: '#d4a017', bg: 'rgba(212,160,23,0.12)', border: 'rgba(212,160,23,0.35)' } :
+    { level: 'LOW', label: '別の時間帯を狙おう', color: '#b2bec3', bg: 'rgba(178,190,195,0.12)', border: 'rgba(178,190,195,0.35)' };
 
   const sceneMap = new Map<string, { hours: string[]; sc: ReturnType<typeof getScene> }>();
   hourlyList.forEach(({ h, m, sc }) => {
@@ -571,7 +663,10 @@ export default function Page() {
     return (
       <main style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#0f0c29 0%,#302b63 50%,#e17055 100%)', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ textAlign: 'center', color: '#fff', maxWidth: '400px', width: '100%' }}>
-          <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>🌞</div>
+          {/* ---- カメラロゴ（🌞から変更） ---- */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.2rem' }}>
+            <CameraLogo size={88} />
+          </div>
           <h1 style={{ fontSize: '2.2rem', fontWeight: '800', letterSpacing: '-1px', marginBottom: '0.5rem' }}>絶景ファインダー</h1>
           <p style={{ fontSize: '1rem', opacity: 0.85, marginBottom: '0.5rem', lineHeight: 1.6 }}>今この場所で、どんな写真が撮れるか。</p>
           <p style={{ fontSize: '0.85rem', opacity: 0.65, marginBottom: '2rem', lineHeight: 1.6 }}>シャッターを押す前に確認できる撮影サポートアプリ</p>
@@ -614,7 +709,9 @@ export default function Page() {
         <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ maxWidth: '480px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.7rem' }}>
-              <span style={{ fontSize: '1.3rem', cursor: 'pointer' }} onClick={() => setStep('top')}>🌞</span>
+              <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setStep('top')}>
+                <CameraLogo size={36} />
+              </span>
               <div>
                 <div style={{ fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.5px', color: '#333', cursor: 'pointer' }} onClick={() => setStep('top')}>絶景ファインダー</div>
                 <div style={{ fontSize: '0.72rem', color: '#666', marginTop: '1px' }}>シャッターを押す前に、確認を。</div>
@@ -753,6 +850,29 @@ export default function Page() {
                 📍 {spot.name}
                 <span onClick={() => { setStep('search'); setQuery(''); setSpot(null); setSuggestionResult(null); }} style={{ marginLeft: '12px', color: '#0984e3', cursor: 'pointer', fontSize: '0.8rem' }}>スポットを変更</span>
               </div>
+
+              {/* ---- 今すぐ撮れるか？カード ---- */}
+              {!suggestionResult && nowJudge && (
+                <div style={{ borderRadius: '18px', background: nowJudge.bg, border: `1.5px solid ${nowJudge.border}`, padding: '1.2rem 1.4rem', marginBottom: '1rem' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: '700', color: nowJudge.color, letterSpacing: '2px', marginBottom: '8px' }}>
+                    ▶ 今すぐ撮れるか？
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div>
+                      <div style={{ fontSize: '44px', fontWeight: '700', color: nowJudge.color, lineHeight: 1 }}>{nowScore}</div>
+                      <div style={{ fontSize: '11px', color: nowJudge.color, opacity: 0.8, marginTop: '3px' }}>/ 100</div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#333', marginBottom: '3px' }}>{nowLt?.label}</div>
+                      <div style={{ fontSize: '12px', color: '#666', lineHeight: 1.5, marginBottom: '6px' }}>{nowComment}</div>
+                      <div style={{ fontSize: '13px', color: '#c8a84b' }}>{StarStr(nowStars)}　<span style={{ fontSize: '11px', color: '#888' }}>総合おすすめ</span></div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '12px', display: 'inline-block', background: nowJudge.color, color: '#fff', fontSize: '12px', fontWeight: '700', padding: '7px 18px', borderRadius: '20px' }}>
+                    {nowJudge.label}
+                  </div>
+                </div>
+              )}
 
               {suggestionResult && (
                 <>
@@ -900,19 +1020,68 @@ export default function Page() {
                 )) : <div style={{ fontSize: '0.82rem', color: '#bbb' }}>まだメモがありません</div>}
               </div>
 
+              {/* ---- 改善版タイムライン ---- */}
               <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.2rem 0.6rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.2rem 0.4rem' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>今日のタイムライン</div>
                   <button onClick={() => setShowNight(!showNight)} style={{ fontSize: '0.72rem', color: '#666', background: 'none', border: '1px solid #e5e5e7', borderRadius: '20px', padding: '3px 10px', cursor: 'pointer' }}>
                     {showNight ? '夜を隠す' : '夜も表示'}
                   </button>
                 </div>
-                {visibleList.map(({ h, m, sc, isNow }) => (
-                  <div key={`${h}-${m}`} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 1rem', background: isNow ? '#fff8f0' : '#fff', borderTop: '1px solid #f5f5f7' }}>
-                    <span style={{ width: '48px', fontSize: '0.82rem', fontWeight: isNow ? '700' : '400', color: isNow ? '#e17055' : '#999', flexShrink: 0 }}>{h}:{String(m).padStart(2, '0')}</span>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: sc.color, marginRight: '0.6rem', flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.82rem', color: isNow ? '#333' : '#555', fontWeight: isNow ? '600' : '400' }}>{sc.emoji} {sc.label}</span>
-                    {isNow && <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: '#e17055', fontWeight: '700', flexShrink: 0 }}>← 今</span>}
+
+                {/* 凡例 */}
+                <div style={{ margin: '0 1.2rem 0.6rem', padding: '8px 12px', background: '#f8f8f8', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#888' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ width: '8px', height: '5px', borderRadius: '2px', background: '#ddd' }}/>
+                      <div style={{ width: '24px', height: '5px', borderRadius: '2px', background: '#e17055' }}/>
+                    </div>
+                    <span>バーが長い = 太陽がカメラ方向と一致（順光に近い）</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#888' }}>
+                    <span style={{ color: '#c8a84b', fontSize: '12px', letterSpacing: '-1px' }}>★☆☆☆☆→★★★★★</span>
+                    <span>星が多いほど総合的に撮影に適した時間帯</span>
+                  </div>
+                </div>
+
+                {/* 列ヘッダー */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 1rem 6px', borderBottom: '1px solid #f0f0f0' }}>
+                  <div style={{ width: '44px', fontSize: '10px', color: '#aaa', flexShrink: 0 }}>時刻</div>
+                  <div style={{ width: '52px', fontSize: '10px', color: '#aaa', flexShrink: 0 }}>光の角度</div>
+                  <div style={{ width: '54px', fontSize: '10px', color: '#aaa', flexShrink: 0 }}>光の種類</div>
+                  <div style={{ flex: 1, fontSize: '10px', color: '#aaa' }}>コメント</div>
+                  <div style={{ width: '60px', fontSize: '10px', color: '#aaa', flexShrink: 0, textAlign: 'right' }}>総合</div>
+                </div>
+
+                {visibleList.map(({ h, m, sc, lt, stars, comment, matchScore, isNow }) => (
+                  <div key={`${h}-${m}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 1rem', background: isNow ? '#fff8f0' : '#fff', borderTop: '1px solid #f5f5f7' }}>
+                    {/* 時刻 */}
+                    <span style={{ width: '44px', fontSize: '12px', fontWeight: isNow ? '700' : '400', color: isNow ? '#e17055' : '#999', flexShrink: 0 }}>
+                      {h}:{String(m).padStart(2, '0')}
+                    </span>
+                    {/* 光の角度バー */}
+                    <div style={{ width: '52px', flexShrink: 0 }}>
+                      {sc.isNight ? (
+                        <div style={{ width: '52px', height: '5px', borderRadius: '2px', background: '#f0f0f0' }} />
+                      ) : (
+                        <div style={{ width: '52px', height: '5px', borderRadius: '2px', background: '#eee', position: 'relative' }}>
+                          <div style={{ width: `${Math.max(4, matchScore)}%`, height: '100%', borderRadius: '2px', background: lt.color, transition: 'width 0.3s' }} />
+                        </div>
+                      )}
+                    </div>
+                    {/* 光の種類 */}
+                    <div style={{ width: '54px', fontSize: '11px', fontWeight: '600', color: sc.isNight ? '#aaa' : lt.color, flexShrink: 0, lineHeight: 1.3 }}>
+                      {sc.isNight ? sc.emoji : lt.label}
+                    </div>
+                    {/* コメント */}
+                    <div style={{ flex: 1, fontSize: '11px', color: isNow ? '#444' : '#777', lineHeight: 1.4 }}>
+                      {sc.isNight ? sc.label : comment}
+                      {isNow && <span style={{ marginLeft: '4px', color: '#e17055', fontWeight: '700', fontSize: '10px' }}>← 今</span>}
+                    </div>
+                    {/* 星 */}
+                    <div style={{ width: '60px', fontSize: '11px', color: '#c8a84b', flexShrink: 0, textAlign: 'right', letterSpacing: '-1px' }}>
+                      {sc.isNight ? '' : StarStr(stars)}
+                    </div>
                   </div>
                 ))}
               </div>
