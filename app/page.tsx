@@ -88,12 +88,17 @@ function getMoonForDate(date: Date, cloudcover?: number) {
 }
 
 function getWeatherLabel(cloudcover: number, weathercode: number) {
+  // weathercodeを最優先
   if (weathercode >= 61) return { label: '🌧️ 雨', badge: '×', badgeColor: '#e17055' };
   if (weathercode >= 51) return { label: '🌦️ 小雨', badge: '△', badgeColor: '#fdcb6e' };
   if (weathercode >= 45) return { label: '🌫️ 霧', badge: '△', badgeColor: '#fdcb6e' };
-  if (cloudcover <= 20)  return { label: '☀️ 快晴', badge: '◎', badgeColor: '#00b894' };
-  if (cloudcover <= 50)  return { label: '🌤️ 晴れ', badge: '○', badgeColor: '#0984e3' };
-  if (cloudcover <= 80)  return { label: '⛅ 曇り', badge: '△', badgeColor: '#636e72' };
+  // weathercode 0-2は快晴・晴れ確定（雲量は無視）
+  if (weathercode <= 1)  return { label: '☀️ 快晴', badge: '◎', badgeColor: '#00b894' };
+  if (weathercode <= 2)  return { label: '🌤️ 晴れ', badge: '○', badgeColor: '#0984e3' };
+  // weathercode 3（曇りがち）以上はcloudcoverで細分
+  if (cloudcover <= 30)  return { label: '☀️ 快晴', badge: '◎', badgeColor: '#00b894' };
+  if (cloudcover <= 60)  return { label: '🌤️ 晴れ', badge: '○', badgeColor: '#0984e3' };
+  if (cloudcover <= 85)  return { label: '⛅ 曇り', badge: '△', badgeColor: '#636e72' };
   return { label: '☁️ 厚曇り', badge: '×', badgeColor: '#e17055' };
 }
 
@@ -583,11 +588,26 @@ export default function Page() {
     nowStars >= 3 ? { level: 'MID', label: '悪くない。行ける距離なら◎', color: '#d4a017', bg: 'rgba(212,160,23,0.12)', border: 'rgba(212,160,23,0.35)' } :
     { level: 'LOW', label: '別の時間帯を狙おう', color: '#b2bec3', bg: 'rgba(178,190,195,0.12)', border: 'rgba(178,190,195,0.35)' };
 
-  const sceneMap = new Map<string, { hours: string[]; sc: ReturnType<typeof getScene> }>();
+  type SceneBlock = { label: string; sc: ReturnType<typeof getScene>; start: string; end: string };
+  const sceneBlocks: SceneBlock[] = [];
+  let currentBlock: SceneBlock | null = null;
   hourlyList.forEach(({ h, m, sc }) => {
-    if (sc.isNight) return;
-    if (!sceneMap.has(sc.label)) sceneMap.set(sc.label, { hours: [], sc });
-    sceneMap.get(sc.label)!.hours.push(`${h}:${String(m).padStart(2, '0')}`);
+    if (sc.isNight) { currentBlock = null; return; }
+    const timeStr = `${h}:${String(m).padStart(2, '0')}`;
+    if (currentBlock && currentBlock.label === sc.label) {
+      currentBlock.end = timeStr;
+    } else {
+      currentBlock = { label: sc.label, sc, start: timeStr, end: timeStr };
+      sceneBlocks.push(currentBlock);
+    }
+  });
+  const sceneMap = new Map<string, { sc: ReturnType<typeof getScene>; start: string; end: string }>();
+  sceneBlocks.forEach(({ label, sc, start, end }) => {
+    if (!sceneMap.has(label)) {
+      sceneMap.set(label, { sc, start, end });
+    } else {
+      sceneMap.get(label)!.end = end;
+    }
   });
 
   const visibleList = showNight ? hourlyList : hourlyList.filter(({ sc, isNow }) => !sc.isNight || isNow);
@@ -956,18 +976,16 @@ export default function Page() {
               {sceneMap.size > 0 && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📅 今日撮れるシーン</div>
-                  {Array.from(sceneMap.entries()).map(([label, { hours, sc }]) => {
+                  {Array.from(sceneMap.entries()).map(([label, { sc, start, end }]) => {
                     const desc = getSceneDesc(label);
-                    const startH = hours[0];
-                    const endH = hours.length > 1 ? hours[hours.length - 1] : null;
                     return (
                       <div key={label} style={{ padding: '0.55rem 0', borderBottom: '1px solid #f5f5f7' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: desc ? '2px' : 0 }}>
-                          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: sc.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: '0.85rem', fontWeight: '700', flex: 1, color: '#333' }}>{sc.emoji} {label}</span>
-                          <span style={{ fontSize: '0.8rem', color: '#666', flexShrink: 0 }}>{startH}{endH ? `〜${endH}` : ''}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: desc ? '2px' : 0 }}>
+                          <span style={{ fontSize: '1rem' }}>{sc.emoji}</span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: '700', flex: 1, color: '#333' }}>{label}</span>
+                          <span style={{ fontSize: '0.8rem', color: '#666', flexShrink: 0 }}>{start}{end !== start ? `〜${end}` : ''}</span>
                         </div>
-                        {desc && <div style={{ fontSize: '0.75rem', color: '#888', paddingLeft: '20px', lineHeight: 1.5 }}>{desc}</div>}
+                        {desc && <div style={{ fontSize: '0.75rem', color: '#888', paddingLeft: '28px', lineHeight: 1.5 }}>{desc}</div>}
                       </div>
                     );
                   })}
