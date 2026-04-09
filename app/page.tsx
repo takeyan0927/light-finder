@@ -605,15 +605,12 @@ export default function Page() {
       sceneBlocks.push({ label: sc.label, sc, start: timeStr, end: timeStr, isBad });
     }
   });
-  // sceneBlocksをそのまま使う（時系列順・重複なし・抜けなし）
-  // endを+30分補正して次のブロックとの隙間をなくす
+  // endを+30分補正して次のブロックとの隙間をなくす（例：6:30→7:00、7:30→8:00）
   sceneBlocks.forEach(block => {
     const [hh, mm] = block.end.split(':').map(Number);
-    if (mm === 30) {
-      block.end = `${hh + 1}:00`;
-    } else {
-      block.end = `${hh}:30`;
-    }
+    const nextMm = mm === 30 ? 0 : 30;
+    const nextHh = mm === 30 ? hh + 1 : hh;
+    block.end = `${nextHh}:${String(nextMm).padStart(2, '0')}`;
   });
 
   const visibleList = showNight ? hourlyList : hourlyList.filter(({ sc, isNow }) => !sc.isNight || isNow);
@@ -989,7 +986,7 @@ export default function Page() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: desc ? '2px' : 0 }}>
                           <span style={{ fontSize: '1rem' }}>{block.sc.emoji}</span>
                           <span style={{ fontSize: '0.85rem', fontWeight: '700', flex: 1, color: block.isBad ? '#999' : '#333' }}>{block.label}</span>
-                          <span style={{ fontSize: '0.8rem', color: '#999', flexShrink: 0 }}>{block.start}{block.end !== block.start ? `〜${block.end}` : ''}</span>
+                          <span style={{ fontSize: '0.8rem', color: '#999', flexShrink: 0 }}>{block.start}〜{block.end}</span>
                         </div>
                         {desc && <div style={{ fontSize: '0.75rem', color: '#aaa', paddingLeft: '28px', lineHeight: 1.5 }}>{desc}</div>}
                       </div>
