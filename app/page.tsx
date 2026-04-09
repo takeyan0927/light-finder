@@ -568,6 +568,9 @@ export default function Page() {
     const hw = hourlyWeather.find(w => {
       const wDate = new Date(w.timeStr);
       return wDate.getHours() === h && wDate.getDate() === d.getDate();
+    }) ?? hourlyWeather.find(w => {
+      const wDate = new Date(w.timeStr);
+      return wDate.getHours() === (m === 30 ? h : h - 1) && wDate.getDate() === d.getDate();
     });
     const sc = getScene(sp.altitude, an.angleDiff, isMorn, hw?.cloudcover, hw?.weathercode);
     const lt = getLightTypeLabel(an.angleDiff, sp.altitude, isMorn);
@@ -603,6 +606,15 @@ export default function Page() {
     }
   });
   // sceneBlocksをそのまま使う（時系列順・重複なし・抜けなし）
+  // endを+30分補正して次のブロックとの隙間をなくす
+  sceneBlocks.forEach(block => {
+    const [hh, mm] = block.end.split(':').map(Number);
+    if (mm === 30) {
+      block.end = `${hh + 1}:00`;
+    } else {
+      block.end = `${hh}:30`;
+    }
+  });
 
   const visibleList = showNight ? hourlyList : hourlyList.filter(({ sc, isNow }) => !sc.isNight || isNow);
 
