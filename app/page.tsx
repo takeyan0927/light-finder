@@ -588,13 +588,20 @@ export default function Page() {
     nowStars >= 3 ? { level: 'MID', label: '悪くない。行ける距離なら◎', color: '#d4a017', bg: 'rgba(212,160,23,0.12)', border: 'rgba(212,160,23,0.35)' } :
     { level: 'LOW', label: '別の時間帯を狙おう', color: '#b2bec3', bg: 'rgba(178,190,195,0.12)', border: 'rgba(178,190,195,0.35)' };
 
-  // 今日撮れるシーン：晴れ系のみ・連続ブロックで時系列順に表示
-  // 曇り・雨は除外（タイムラインには引き続き表示）
-  type SceneBlock = { label: string; sc: ReturnType<typeof getScene>; start: string; end: string };
+  // 今日撮れるシーン：夜以外は全時間帯を連続ブロックで表示（曇り・雨はグレーアウト）
+  type SceneBlock = { label: string; sc: ReturnType<typeof getScene>; start: string; end: string; isBad: boolean };
   const sceneBlocks: SceneBlock[] = [];
   hourlyList.forEach(({ h, m, sc }) => {
     if (sc.isNight) return;
-    if (sc.label === '曇り・光の判断困難' || sc.label === '雨・撮影注意') return;
+    const timeStr = `${h}:${String(m).padStart(2, '0')}`;
+    const isBad = sc.label === '曇り・光の判断困難' || sc.label === '雨・撮影注意';
+    const last = sceneBlocks[sceneBlocks.length - 1];
+    if (last && last.label === sc.label) {
+      last.end = timeStr;
+    } else {
+      sceneBlocks.push({ label: sc.label, sc, start: timeStr, end: timeStr, isBad });
+    }
+  });
     const timeStr = `${h}:${String(m).padStart(2, '0')}`;
     const last = sceneBlocks[sceneBlocks.length - 1];
     if (last && last.label === sc.label) {
@@ -603,16 +610,7 @@ export default function Page() {
       sceneBlocks.push({ label: sc.label, sc, start: timeStr, end: timeStr });
     }
   });
-  // 同じラベルが複数ブロックに分かれても、最初の開始〜最後の終了にまとめる
-  const sceneMap = new Map<string, { sc: ReturnType<typeof getScene>; start: string; end: string }>();
-  sceneBlocks.forEach(({ label, sc, start, end }) => {
-    const existing = sceneMap.get(label);
-    if (!existing) {
-      sceneMap.set(label, { sc, start, end });
-    } else {
-      existing.end = end;
-    }
-  });
+  // sceneBlocksをそのまま使う（時系列順・重複なし・抜けなし）
 
   const visibleList = showNight ? hourlyList : hourlyList.filter(({ sc, isNow }) => !sc.isNight || isNow);
 
@@ -977,19 +975,19 @@ export default function Page() {
                 </>
               )}
 
-              {sceneMap.size > 0 && (
+              {sceneBlocks.length > 0 && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📅 今日撮れるシーン</div>
-                  {Array.from(sceneMap.entries()).map(([label, { sc, start, end }]) => {
-                    const desc = getSceneDesc(label);
+                  {sceneBlocks.map((block, i) => {
+                    const desc = getSceneDesc(block.label);
                     return (
-                      <div key={label} style={{ padding: '0.55rem 0', borderBottom: '1px solid #f5f5f7' }}>
+                      <div key={i} style={{ padding: '0.55rem 0', borderBottom: '1px solid #f5f5f7', opacity: block.isBad ? 0.45 : 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: desc ? '2px' : 0 }}>
-                          <span style={{ fontSize: '1rem' }}>{sc.emoji}</span>
-                          <span style={{ fontSize: '0.85rem', fontWeight: '700', flex: 1, color: '#333' }}>{label}</span>
-                          <span style={{ fontSize: '0.8rem', color: '#666', flexShrink: 0 }}>{start}{end !== start ? `〜${end}` : ''}</span>
+                          <span style={{ fontSize: '1rem' }}>{block.sc.emoji}</span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: '700', flex: 1, color: block.isBad ? '#999' : '#333' }}>{block.label}</span>
+                          <span style={{ fontSize: '0.8rem', color: '#999', flexShrink: 0 }}>{block.start}{block.end !== block.start ? `〜${block.end}` : ''}</span>
                         </div>
-                        {desc && <div style={{ fontSize: '0.75rem', color: '#888', paddingLeft: '28px', lineHeight: 1.5 }}>{desc}</div>}
+                        {desc && <div style={{ fontSize: '0.75rem', color: '#aaa', paddingLeft: '28px', lineHeight: 1.5 }}>{desc}</div>}
                       </div>
                     );
                   })}
