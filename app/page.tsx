@@ -602,14 +602,6 @@ export default function Page() {
       sceneBlocks.push({ label: sc.label, sc, start: timeStr, end: timeStr, isBad });
     }
   });
-    const timeStr = `${h}:${String(m).padStart(2, '0')}`;
-    const last = sceneBlocks[sceneBlocks.length - 1];
-    if (last && last.label === sc.label) {
-      last.end = timeStr;
-    } else {
-      sceneBlocks.push({ label: sc.label, sc, start: timeStr, end: timeStr });
-    }
-  });
   // sceneBlocksをそのまま使う（時系列順・重複なし・抜けなし）
 
   const visibleList = showNight ? hourlyList : hourlyList.filter(({ sc, isNow }) => !sc.isNight || isNow);
