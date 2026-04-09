@@ -588,25 +588,29 @@ export default function Page() {
     nowStars >= 3 ? { level: 'MID', label: '悪くない。行ける距離なら◎', color: '#d4a017', bg: 'rgba(212,160,23,0.12)', border: 'rgba(212,160,23,0.35)' } :
     { level: 'LOW', label: '別の時間帯を狙おう', color: '#b2bec3', bg: 'rgba(178,190,195,0.12)', border: 'rgba(178,190,195,0.35)' };
 
+  // 今日撮れるシーン：晴れ系のみ・連続ブロックで時系列順に表示
+  // 曇り・雨は除外（タイムラインには引き続き表示）
   type SceneBlock = { label: string; sc: ReturnType<typeof getScene>; start: string; end: string };
   const sceneBlocks: SceneBlock[] = [];
-  let currentBlock: SceneBlock | null = null;
   hourlyList.forEach(({ h, m, sc }) => {
-    if (sc.isNight) { currentBlock = null; return; }
+    if (sc.isNight) return;
+    if (sc.label === '曇り・光の判断困難' || sc.label === '雨・撮影注意') return;
     const timeStr = `${h}:${String(m).padStart(2, '0')}`;
-    if (currentBlock && currentBlock.label === sc.label) {
-      currentBlock.end = timeStr;
+    const last = sceneBlocks[sceneBlocks.length - 1];
+    if (last && last.label === sc.label) {
+      last.end = timeStr;
     } else {
-      currentBlock = { label: sc.label, sc, start: timeStr, end: timeStr };
-      sceneBlocks.push(currentBlock);
+      sceneBlocks.push({ label: sc.label, sc, start: timeStr, end: timeStr });
     }
   });
+  // 同じラベルが複数ブロックに分かれても、最初の開始〜最後の終了にまとめる
   const sceneMap = new Map<string, { sc: ReturnType<typeof getScene>; start: string; end: string }>();
   sceneBlocks.forEach(({ label, sc, start, end }) => {
-    if (!sceneMap.has(label)) {
+    const existing = sceneMap.get(label);
+    if (!existing) {
       sceneMap.set(label, { sc, start, end });
     } else {
-      sceneMap.get(label)!.end = end;
+      existing.end = end;
     }
   });
 
