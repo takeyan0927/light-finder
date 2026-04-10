@@ -1094,21 +1094,31 @@ export default function Page() {
                   <div style={{ fontSize: '0.9rem', fontWeight: '700', color: moon.starColor, marginBottom: '10px' }}>{moon.starStr}</div>
                   {nightStarSlots.length > 0 && (
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '5px', fontWeight: '600' }}>今夜の時間帯別おすすめ度</div>
-                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                        {nightStarSlots.map(({ hour, score, moonUp }) => {
-                          const colors = ['#e17055','#d4a017','#d4a017','#0984e3','#6c5ce7'];
+                      <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '6px', fontWeight: '600' }}>今夜の時間帯別おすすめ度</div>
+                      {(() => {
+                        // 連続する同じスコアをブロックにまとめる
+                        const blocks: { score: number; start: number; end: number }[] = [];
+                        nightStarSlots.forEach(({ hour, score }) => {
+                          const last = blocks[blocks.length - 1];
+                          if (last && last.score === score) {
+                            last.end = hour;
+                          } else {
+                            blocks.push({ score, start: hour, end: hour });
+                          }
+                        });
+                        return blocks.map((b, i) => {
+                          const endHour = b.end === 23 ? 0 : b.end + 1;
+                          const timeLabel = b.start === b.end
+                            ? `${b.start}時〜${endHour}時`
+                            : `${b.start}時〜${endHour}時`;
                           return (
-                            <div key={hour} style={{ textAlign: 'center', minWidth: '28px' }}>
-                              <div style={{ fontSize: '9px', color: '#aaa', marginBottom: '2px' }}>{hour}時</div>
-                              <div style={{ fontSize: '10px', fontWeight: '700', color: colors[score - 1] }}>
-                                {'★'.repeat(score)}
-                              </div>
-                              {moonUp && <div style={{ fontSize: '8px', color: '#b2bec3' }}>🌕</div>}
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '12px', color: '#c8a84b', letterSpacing: '-1px', flexShrink: 0 }}>{'★'.repeat(b.score)}{'☆'.repeat(5 - b.score)}</span>
+                              <span style={{ fontSize: '11px', color: '#666' }}>{timeLabel}</span>
                             </div>
                           );
-                        })}
-                      </div>
+                        });
+                      })()}
                     </div>
                   )}
                 </div>
