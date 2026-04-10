@@ -71,20 +71,70 @@ function getSunDesc(altitude: number, angleDiff: number) {
   return { altDesc, dirDesc };
 }
 
-function getMoonForDate(date: Date, cloudcover?: number) {
+function getMoonForDate(date: Date, nightCloudcover?: number, nightWeathercode?: number) {
   const knownNewMoon = new Date('2000-01-06T18:14:00Z');
   const lunarCycle = 29.53058867;
   const elapsed = (date.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
   const age = ((elapsed % lunarCycle) + lunarCycle) % lunarCycle;
   const illumination = Math.round((1 - Math.cos((age / lunarCycle) * 2 * Math.PI)) / 2 * 100);
+  // 月齢スコア：新月ほど高い
   let moonScore = illumination <= 5 ? 5 : illumination <= 30 ? 4 : illumination <= 55 ? 3 : illumination <= 80 ? 2 : 1;
-  const cloudScore = cloudcover != null ? cloudcover <= 20 ? 0 : cloudcover <= 50 ? -1 : cloudcover <= 80 ? -2 : -3 : 0;
+  // 夜の天気による減点（雨や厚曇りは大きく減点）
+  let cloudScore = 0;
+  if (nightWeathercode != null && nightWeathercode >= 61) cloudScore = -3;
+  else if (nightWeathercode != null && nightWeathercode >= 51) cloudScore = -2;
+  else if (nightCloudcover != null) {
+    if (nightCloudcover > 80) cloudScore = -2;
+    else if (nightCloudcover > 50) cloudScore = -1;
+  }
   const finalScore = Math.max(1, Math.min(5, moonScore + cloudScore));
   const phase = illumination <= 5 ? '🌑 新月' : illumination <= 30 ? '🌒 細い月' : illumination <= 55 ? '🌓 半月' : illumination <= 80 ? '🌔 満月に近い月' : '🌕 満月';
   const moonDesc = illumination <= 5 ? '月明かりなし' : illumination <= 30 ? `月明かり：弱い（${illumination}%）` : illumination <= 55 ? `月明かり：やや強い（${illumination}%）` : illumination <= 80 ? `月明かり：強い（${illumination}%）` : `月明かり：とても強い（${illumination}%）`;
   const starLabels = ['見えにくい', 'やや見えにくい', 'まあまあ見える', 'よく見える', '最高によく見える'];
   const starColors = ['#e17055', '#d4a017', '#00b894', '#0984e3', '#6c5ce7'];
   return { phase, moonDesc, starStr: '★'.repeat(finalScore) + '☆'.repeat(5 - finalScore), starColor: starColors[finalScore - 1], starLabel: starLabels[finalScore - 1], illumination };
+}
+
+// 時間帯別の星空スコアを計算（月の出没 × 天気）
+function getNightStarSlots(
+  date: Date,
+  lat: number,
+  lng: number,
+  hourlyWeather: { hour: number; cloudcover: number; weathercode: number; timeStr: string }[]
+): { hour: number; score: number; moonUp: boolean }[] {
+  const knownNewMoon = new Date('2000-01-06T18:14:00Z');
+  const lunarCycle = 29.53058867;
+  const elapsed = (date.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
+  const age = ((elapsed % lunarCycle) + lunarCycle) % lunarCycle;
+  const illumination = (1 - Math.cos((age / lunarCycle) * 2 * Math.PI)) / 2;
+  const moonPenalty = Math.round(illumination * 3); // 0(新月)〜3(満月)の減点
+
+  const slots: { hour: number; score: number; moonUp: boolean }[] = [];
+  for (let i = 0; i < 10; i++) {
+    const h = (20 + i) % 24;
+    const slotDate = new Date(date);
+    if (h < 20) slotDate.setDate(slotDate.getDate() + 1);
+    slotDate.setHours(h, 0, 0, 0);
+
+    const moonPos = SunCalc.getMoonPosition(slotDate, lat, lng);
+    const moonUp = (moonPos.altitude * 180 / Math.PI) > 0;
+
+    const hw = hourlyWeather.find(w => {
+      const wd = new Date(w.timeStr);
+      return wd.getHours() === h && wd.getDate() === slotDate.getDate();
+    });
+
+    let score = 5;
+    if (moonUp) score -= moonPenalty;
+    if (hw) {
+      if (hw.weathercode >= 61) score -= 3;
+      else if (hw.weathercode >= 51) score -= 2;
+      else if (hw.cloudcover > 80) score -= 2;
+      else if (hw.cloudcover > 50) score -= 1;
+    }
+    slots.push({ hour: h, score: Math.max(1, Math.min(5, score)), moonUp });
+  }
+  return slots;
 }
 
 function getWeatherLabel(cloudcover: number, weathercode: number) {
@@ -551,7 +601,20 @@ export default function Page() {
   const isMorning = currentHour < solarNoon;
   const scene = sunPos && result ? getScene(sunPos.altitude, result.angleDiff, isMorning, weather?.cloudcover, weather?.weathercode) : null;
   const sunDesc = sunPos && result ? getSunDesc(sunPos.altitude, result.angleDiff) : null;
-  const moon = getMoonForDate(now, weather?.cloudcover);
+  // 夜の時間帯（20:00〜翌4:00）の天気を取得して星空スコアに使う
+  const nightWeather = hourlyWeather.filter(w => {
+    const wDate = new Date(w.timeStr);
+    const wh = wDate.getHours();
+    return wh >= 20 || wh <= 4;
+  });
+  const nightCloudAvg = nightWeather.length > 0
+    ? Math.round(nightWeather.reduce((sum, w) => sum + w.cloudcover, 0) / nightWeather.length)
+    : undefined;
+  const nightWeathercode = nightWeather.length > 0
+    ? Math.max(...nightWeather.map(w => w.weathercode))
+    : undefined;
+  const moon = getMoonForDate(now, nightCloudAvg, nightWeathercode);
+  const nightStarSlots = spot ? getNightStarSlots(now, spot.lat, spot.lng, hourlyWeather) : [];
   const wd = weather ? getWeatherLabel(weather.cloudcover, weather.weathercode) : null;
   const todaySunrise = spot ? getSunDirection(now, spot.lat, spot.lng, 'sunrise') : null;
   const todaySunset = spot ? getSunDirection(now, spot.lat, spot.lng, 'sunset') : null;
@@ -1027,8 +1090,27 @@ export default function Page() {
                   <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>月・星空</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '4px', color: '#333' }}>{moon.phase}</div>
                   <div style={{ fontSize: '0.75rem', color: '#444', marginBottom: '2px' }}>{moon.moonDesc}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#444', marginBottom: '6px' }}>星空：{moon.starLabel}</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: '700', color: moon.starColor }}>{moon.starStr}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#444', marginBottom: '8px' }}>星空：{moon.starLabel}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '700', color: moon.starColor, marginBottom: '10px' }}>{moon.starStr}</div>
+                  {nightStarSlots.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '5px', fontWeight: '600' }}>今夜の時間帯別おすすめ度</div>
+                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                        {nightStarSlots.map(({ hour, score, moonUp }) => {
+                          const colors = ['#e17055','#d4a017','#d4a017','#0984e3','#6c5ce7'];
+                          return (
+                            <div key={hour} style={{ textAlign: 'center', minWidth: '28px' }}>
+                              <div style={{ fontSize: '9px', color: '#aaa', marginBottom: '2px' }}>{hour}時</div>
+                              <div style={{ fontSize: '10px', fontWeight: '700', color: colors[score - 1] }}>
+                                {'★'.repeat(score)}
+                              </div>
+                              {moonUp && <div style={{ fontSize: '8px', color: '#b2bec3' }}>🌕</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
