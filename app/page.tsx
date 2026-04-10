@@ -1082,7 +1082,36 @@ export default function Page() {
                       <div style={{ fontSize: '1.4rem', marginBottom: '4px' }}>{wd.label}</div>
                       <div style={{ fontSize: '0.75rem', color: '#444' }}>雲量 {weather.cloudcover}%</div>
                       <div style={{ fontSize: '0.75rem', color: '#444' }}>気温 {weather.temperature}℃</div>
-                      <div style={{ marginTop: '8px', fontSize: '1.2rem', fontWeight: '800', color: wd.badgeColor }}>{wd.badge}</div>
+                      <div style={{ marginTop: '8px', fontSize: '1.2rem', fontWeight: '800', color: wd.badgeColor, marginBottom: '10px' }}>{wd.badge}</div>
+                      {hourlyWeather.length > 0 && (() => {
+                        // 今日の時間帯別天気を連続ブロックにまとめる
+                        const todayStr = now.toISOString().split('T')[0];
+                        const todaySlots = hourlyWeather.filter(w => w.timeStr.startsWith(todayStr) && new Date(w.timeStr).getHours() >= now.getHours());
+                        const blocks: { label: string; emoji: string; badge: string; badgeColor: string; start: number; end: number }[] = [];
+                        todaySlots.forEach(w => {
+                          const wl = getWeatherLabel(w.cloudcover, w.weathercode);
+                          const h = new Date(w.timeStr).getHours();
+                          const last = blocks[blocks.length - 1];
+                          if (last && last.label === wl.label) {
+                            last.end = h;
+                          } else {
+                            blocks.push({ label: wl.label, emoji: wl.label.split(' ')[0], badge: wl.badge, badgeColor: wl.badgeColor, start: h, end: h });
+                          }
+                        });
+                        if (blocks.length === 0) return null;
+                        return (
+                          <div>
+                            <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '6px', fontWeight: '600' }}>今日の天気の変化</div>
+                            {blocks.map((b, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '13px' }}>{b.emoji}</span>
+                                <span style={{ fontSize: '11px', color: '#555', flex: 1 }}>{b.label.split(' ').slice(1).join(' ')}</span>
+                                <span style={{ fontSize: '11px', color: '#888' }}>{b.start}時〜{b.end + 1}時</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </>
                   ) : <div style={{ color: '#aaa', fontSize: '0.85rem' }}>取得中...</div>}
                 </div>
