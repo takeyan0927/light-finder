@@ -703,7 +703,7 @@ export default function Page() {
   if (step === 'guide') {
     return (
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-        <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 100 }}>
           <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={() => setStep('top')} style={{ background: 'none', border: 'none', color: '#0984e3', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600' }}>← 戻る</button>
             <span style={{ fontSize: '1rem', fontWeight: '700', color: '#333' }}>使い方ガイド</span>
@@ -741,7 +741,7 @@ export default function Page() {
   if (step === 'request') {
     return (
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-        <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 100 }}>
           <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={() => setStep('top')} style={{ background: 'none', border: 'none', color: '#0984e3', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600' }}>← 戻る</button>
             <span style={{ fontSize: '1rem', fontWeight: '700', color: '#333' }}>スポット登録リクエスト</span>
@@ -825,7 +825,7 @@ export default function Page() {
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" async />
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-        <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 100 }}>
           <div style={{ maxWidth: '480px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.7rem' }}>
               <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setStep('top')}>
@@ -895,7 +895,7 @@ export default function Page() {
         <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1rem 1.2rem 2rem' }}>
           {step === 'bearing' && pendingSpot && (
             <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <div ref={mapRef} style={{ height: '220px', background: '#e0e0e0', zIndex: 1 }} />
+              <div ref={mapRef} style={{ height: '220px', background: '#e0e0e0', zIndex: 1, position: 'relative', isolation: 'isolate' }} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #f0f0f0' }}>
                 <button onClick={() => setMode('A')} style={{ padding: '0.8rem', background: mode === 'A' ? '#fff8f0' : '#f5f5f7', border: 'none', borderBottom: mode === 'A' ? '2px solid #e17055' : '2px solid transparent', cursor: 'pointer', fontSize: '0.85rem', fontWeight: mode === 'A' ? '700' : '400', color: mode === 'A' ? '#e17055' : '#888' }}>
                   📐 方向を指定
@@ -1022,7 +1022,7 @@ export default function Page() {
                   {suggestionResult.type !== 'star' && (
                     <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                       <div style={{ padding: '0.8rem 1rem', fontSize: '0.8rem', fontWeight: '600', color: '#333', borderBottom: '1px solid #f0f0f0' }}>🗺️ カメラを向ける方向（黄色の矢印）</div>
-                      <div ref={resultMapRef} style={{ height: '220px', background: '#e0e0e0' }} />
+                      <div ref={resultMapRef} style={{ height: '220px', background: '#e0e0e0', position: 'relative', isolation: 'isolate' }} />
                     </div>
                   )}
                 </>
@@ -1051,7 +1051,7 @@ export default function Page() {
                           <span><span style={{ color: '#f39c12', fontWeight: '700' }}>——</span> 日の出方角</span>
                           <span><span style={{ color: '#e74c3c', fontWeight: '700' }}>——</span> 日の入り方角</span>
                         </div>
-                        <div ref={sunriseMapRef} style={{ height: '200px', background: '#e0e0e0' }} />
+                        <div ref={sunriseMapRef} style={{ height: '200px', background: '#e0e0e0', position: 'relative', isolation: 'isolate' }} />
                       </div>
                     </>
                   )}
