@@ -410,6 +410,9 @@ export default function Page() {
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
       L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
       leafletMap.current = map;
+      // LeafletのzIndexをヘッダーより下に強制設定
+      const panes = mapEl.querySelectorAll('.leaflet-pane, .leaflet-control-container');
+      panes.forEach((p: any) => { p.style.zIndex = '1'; });
     };
     if ((window as any).L) { initMap(); } else {
       const timer = setInterval(() => { if ((window as any).L) { clearInterval(timer); initMap(); } }, 100);
@@ -454,7 +457,9 @@ export default function Page() {
 
   // 日の出・日の入り方角地図
   useEffect(() => {
-    if (!spot || !todaySunrise || !todaySunset || !sunriseMapRef.current || step !== 'result') return;
+    if (!spot || step !== 'result' || !sunriseMapRef.current) return;
+    const srAzimuth = getSunDirection(new Date(), spot.lat, spot.lng, 'sunrise').azimuth;
+    const ssAzimuth = getSunDirection(new Date(), spot.lat, spot.lng, 'sunset').azimuth;
     const initSunriseMap = () => {
       const L = (window as any).L;
       if (!L) return;
@@ -464,16 +469,16 @@ export default function Page() {
       const map = L.map(mapEl, { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false }).setView([spot.lat, spot.lng], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
       L.marker([spot.lat, spot.lng]).addTo(map);
-      // 日の出矢印（オレンジ）
-      drawArrow(map, L, spot.lat, spot.lng, todaySunrise.azimuth, '#f39c12');
-      // 日の入り矢印（赤）
-      drawArrow(map, L, spot.lat, spot.lng, todaySunset.azimuth, '#e74c3c');
+      drawArrow(map, L, spot.lat, spot.lng, srAzimuth, '#f39c12');
+      drawArrow(map, L, spot.lat, spot.lng, ssAzimuth, '#e74c3c');
     };
     if ((window as any).L) { initSunriseMap(); } else {
       const timer = setInterval(() => { if ((window as any).L) { clearInterval(timer); initSunriseMap(); } }, 100);
       return () => clearInterval(timer);
     }
-  }, [spot, todaySunrise, todaySunset, step]);
+  }, [spot, step]);
+
+  const handleLocate = () => {
     setLocating(true); setLocateError('');
     if (!navigator.geolocation) { setLocateError('このブラウザは現在地取得に対応していません'); setLocating(false); return; }
     navigator.geolocation.getCurrentPosition(
@@ -894,7 +899,7 @@ export default function Page() {
 
         <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1rem 1.2rem 2rem' }}>
           {step === 'bearing' && pendingSpot && (
-            <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', position: 'relative', zIndex: 0 }}>
               <div ref={mapRef} style={{ height: '220px', background: '#e0e0e0', zIndex: 1, position: 'relative', isolation: 'isolate' }} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #f0f0f0' }}>
                 <button onClick={() => setMode('A')} style={{ padding: '0.8rem', background: mode === 'A' ? '#fff8f0' : '#f5f5f7', border: 'none', borderBottom: mode === 'A' ? '2px solid #e17055' : '2px solid transparent', cursor: 'pointer', fontSize: '0.85rem', fontWeight: mode === 'A' ? '700' : '400', color: mode === 'A' ? '#e17055' : '#888' }}>
@@ -1020,7 +1025,7 @@ export default function Page() {
                     )}
                   </div>
                   {suggestionResult.type !== 'star' && (
-                    <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                    <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', position: 'relative', zIndex: 0 }}>
                       <div style={{ padding: '0.8rem 1rem', fontSize: '0.8rem', fontWeight: '600', color: '#333', borderBottom: '1px solid #f0f0f0' }}>🗺️ カメラを向ける方向（黄色の矢印）</div>
                       <div ref={resultMapRef} style={{ height: '220px', background: '#e0e0e0', position: 'relative', isolation: 'isolate' }} />
                     </div>
@@ -1046,7 +1051,7 @@ export default function Page() {
                           <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>マジックアワー 〜{formatTime(new Date(sunset.getTime() + 30 * 60000))}</div>
                         </div>
                       </div>
-                      <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                      <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', position: 'relative', zIndex: 0 }}>
                         <div style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#555', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '12px' }}>
                           <span><span style={{ color: '#f39c12', fontWeight: '700' }}>——</span> 日の出方角</span>
                           <span><span style={{ color: '#e74c3c', fontWeight: '700' }}>——</span> 日の入り方角</span>
