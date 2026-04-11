@@ -345,6 +345,7 @@ export default function Page() {
   const [requestNote, setRequestNote] = useState('');
   const [requestSent, setRequestSent] = useState(false);
 
+  const sunriseMapRef = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const resultMapRef = useRef<HTMLDivElement>(null);
@@ -451,7 +452,28 @@ export default function Page() {
     }
   }, [suggestionResult, spot]);
 
-  const handleLocate = () => {
+  // 日の出・日の入り方角地図
+  useEffect(() => {
+    if (!spot || !todaySunrise || !todaySunset || !sunriseMapRef.current || step !== 'result') return;
+    const initSunriseMap = () => {
+      const L = (window as any).L;
+      if (!L) return;
+      const mapEl = sunriseMapRef.current;
+      if (!mapEl) return;
+      if ((mapEl as any)._leaflet_id) (mapEl as any)._leaflet_id = null;
+      const map = L.map(mapEl, { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false }).setView([spot.lat, spot.lng], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+      L.marker([spot.lat, spot.lng]).addTo(map);
+      // 日の出矢印（オレンジ）
+      drawArrow(map, L, spot.lat, spot.lng, todaySunrise.azimuth, '#f39c12');
+      // 日の入り矢印（赤）
+      drawArrow(map, L, spot.lat, spot.lng, todaySunset.azimuth, '#e74c3c');
+    };
+    if ((window as any).L) { initSunriseMap(); } else {
+      const timer = setInterval(() => { if ((window as any).L) { clearInterval(timer); initSunriseMap(); } }, 100);
+      return () => clearInterval(timer);
+    }
+  }, [spot, todaySunrise, todaySunset, step]);
     setLocating(true); setLocateError('');
     if (!navigator.geolocation) { setLocateError('このブラウザは現在地取得に対応していません'); setLocating(false); return; }
     navigator.geolocation.getCurrentPosition(
@@ -1009,20 +1031,29 @@ export default function Page() {
               {!suggestionResult && scene && sunPos && result && sunDesc && (
                 <>
                   {sunrise && sunset && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
-                      <div style={{ background: 'linear-gradient(135deg,#f39c12,#f7b731)', borderRadius: '12px', padding: '0.8rem 1rem', color: '#3d2200' }}>
-                        <div style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '2px' }}>🌅 日の出</div>
-                        <div style={{ fontSize: '1.3rem', fontWeight: '800' }}>{formatTime(sunrise)}</div>
-                        <div style={{ fontSize: '0.72rem', marginTop: '2px', opacity: 0.8 }}>方向 {todaySunrise?.azimuth}°（{bearingLabel(todaySunrise?.azimuth ?? 0)}）</div>
-                        <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>マジックアワー {formatTime(new Date(sunrise.getTime() - 30 * 60000))}〜</div>
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '0.6rem' }}>
+                        <div style={{ background: 'linear-gradient(135deg,#f39c12,#f7b731)', borderRadius: '12px', padding: '0.8rem 1rem', color: '#3d2200' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '2px' }}>🌅 日の出</div>
+                          <div style={{ fontSize: '1.3rem', fontWeight: '800' }}>{formatTime(sunrise)}</div>
+                          <div style={{ fontSize: '0.72rem', marginTop: '2px', opacity: 0.8 }}>方向 {todaySunrise?.azimuth}°（{bearingLabel(todaySunrise?.azimuth ?? 0)}）</div>
+                          <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>マジックアワー {formatTime(new Date(sunrise.getTime() - 30 * 60000))}〜</div>
+                        </div>
+                        <div style={{ background: 'linear-gradient(135deg,#c0392b,#e74c3c)', borderRadius: '12px', padding: '0.8rem 1rem', color: '#fff' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '2px' }}>🌇 日の入り</div>
+                          <div style={{ fontSize: '1.3rem', fontWeight: '800' }}>{formatTime(sunset)}</div>
+                          <div style={{ fontSize: '0.72rem', marginTop: '2px', opacity: 0.8 }}>方向 {todaySunset?.azimuth}°（{bearingLabel(todaySunset?.azimuth ?? 0)}）</div>
+                          <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>マジックアワー 〜{formatTime(new Date(sunset.getTime() + 30 * 60000))}</div>
+                        </div>
                       </div>
-                      <div style={{ background: 'linear-gradient(135deg,#c0392b,#e74c3c)', borderRadius: '12px', padding: '0.8rem 1rem', color: '#fff' }}>
-                        <div style={{ fontSize: '0.75rem', fontWeight: '700', marginBottom: '2px' }}>🌇 日の入り</div>
-                        <div style={{ fontSize: '1.3rem', fontWeight: '800' }}>{formatTime(sunset)}</div>
-                        <div style={{ fontSize: '0.72rem', marginTop: '2px', opacity: 0.8 }}>方向 {todaySunset?.azimuth}°（{bearingLabel(todaySunset?.azimuth ?? 0)}）</div>
-                        <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>マジックアワー 〜{formatTime(new Date(sunset.getTime() + 30 * 60000))}</div>
+                      <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                        <div style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#555', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '12px' }}>
+                          <span><span style={{ color: '#f39c12', fontWeight: '700' }}>——</span> 日の出方角</span>
+                          <span><span style={{ color: '#e74c3c', fontWeight: '700' }}>——</span> 日の入り方角</span>
+                        </div>
+                        <div ref={sunriseMapRef} style={{ height: '200px', background: '#e0e0e0' }} />
                       </div>
-                    </div>
+                    </>
                   )}
                   {/* 高度・方位・角度差は非表示 */}
                   <div style={{ background: scene.grad, borderRadius: '20px', padding: '2rem 1.8rem', color: scene.text, marginBottom: '1rem', position: 'relative', overflow: 'hidden' }}>
