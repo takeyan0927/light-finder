@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { getSunPosition, analyzeLighting } from '@/lib/sun/calculator';
 import SunCalc from 'suncalc';
 
@@ -37,6 +38,32 @@ interface Memo {
   date: string;
 }
 
+// ─────────────────────────────────────────────
+// 撮影レシピマップ（シーン別 露出補正・WB・撮影モード・ヒント）
+// ─────────────────────────────────────────────
+const RECIPE_MAP: Record<string, { ev: string; wb: string; mode: string; tip: string }> = {
+  '朝のマジックアワー':    { ev: '-0.7〜-1.0EV', wb: '曇天（6000K）',        mode: 'AV優先 f/8',          tip: 'RAW必須。色変化が速いので30秒ごとに連写' },
+  '夕方のマジックアワー':  { ev: '-0.7〜-1.0EV', wb: '曇天（6000K）',        mode: 'AV優先 f/8',          tip: '日没後10分が最も赤い。三脚推奨' },
+  '朝のゴールデンアワー':  { ev: '-0.3〜-0.7EV', wb: '晴天（5500K）',        mode: 'AV優先 f/8',          tip: '影を積極的に使う。長い影が奥行きを作る' },
+  '夕方のゴールデンアワー':{ ev: '-0.3〜-0.7EV', wb: '晴天（5500K）',        mode: 'AV優先 f/8',          tip: '逆光気味なら+0.3補正。ハイライト注意' },
+  '順光・透明感MAX':       { ev: '±0〜-0.3EV',  wb: '太陽光（5200K）',      mode: 'AV優先 f/11',         tip: 'PLフィルター効果大。青空・水面の透明感UP' },
+  '斜光・立体感あり':      { ev: '±0EV',         wb: '太陽光（5200K）',      mode: 'AV優先 f/8',          tip: '影方向に注意。建物・山の陰影が際立つ' },
+  '半逆光・キラメキ':      { ev: '+0.3〜+0.7EV', wb: '太陽光（5200K）',      mode: 'AV優先 f/5.6',        tip: 'フレア覚悟で太陽端に構図。スポット測光推奨' },
+  '逆光・シルエット':      { ev: '-1.0〜-2.0EV', wb: 'オート',               mode: 'AV優先 f/11',         tip: 'シルエット狙いは被写体を完全に黒く落とす' },
+  '夜・星空撮影':          { ev: 'ISO3200 SS20秒',wb: 'オート or 3800K',     mode: 'M完全マニュアル f/2.8',tip: '赤道儀なしなら20秒以内。ピントは無限遠手前' },
+  '曇り・光の判断困難':    { ev: '+0.3〜+0.7EV', wb: '曇天（6500K）',        mode: 'AV優先 f/5.6',        tip: '柔らかい均一光。人物・花のポートレートに最適' },
+  '雨・撮影注意':          { ev: '+0.7EV',        wb: '曇天（6500K）',        mode: 'SS優先 1/500',        tip: '雨粒を流すならSS遅め。防塵防滴必須' },
+  '夜・曇り':              { ev: 'ISO1600 SS4秒', wb: '蛍光灯（4000K）',      mode: 'M完全マニュアル f/4', tip: '街灯・建物光を活かす。白飛び注意' },
+  '夜・雨':                { ev: 'ISO800 SS1秒',  wb: '蛍光灯（4000K）',      mode: 'M完全マニュアル f/5.6',tip: '路面の光の反射が主役。三脚必須' },
+};
+
+function getRecipe(sceneLabel: string) {
+  return RECIPE_MAP[sceneLabel] ?? null;
+}
+
+// ─────────────────────────────────────────────
+// 既存ユーティリティ関数群
+// ─────────────────────────────────────────────
 function getScene(altitude: number, angleDiff: number, isMorning: boolean, cloudcover?: number, weathercode?: number) {
   const isBad = weathercode != null && weathercode >= 51;
   const isCloudy = cloudcover != null && cloudcover > 80;
@@ -77,9 +104,7 @@ function getMoonForDate(date: Date, nightCloudcover?: number, nightWeathercode?:
   const elapsed = (date.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
   const age = ((elapsed % lunarCycle) + lunarCycle) % lunarCycle;
   const illumination = Math.round((1 - Math.cos((age / lunarCycle) * 2 * Math.PI)) / 2 * 100);
-  // 月齢スコア：新月ほど高い
   let moonScore = illumination <= 5 ? 5 : illumination <= 30 ? 4 : illumination <= 55 ? 3 : illumination <= 80 ? 2 : 1;
-  // 夜の天気による減点（雨や厚曇りは大きく減点）
   let cloudScore = 0;
   if (nightWeathercode != null && nightWeathercode >= 61) cloudScore = -3;
   else if (nightWeathercode != null && nightWeathercode >= 51) cloudScore = -2;
@@ -95,7 +120,6 @@ function getMoonForDate(date: Date, nightCloudcover?: number, nightWeathercode?:
   return { phase, moonDesc, starStr: '★'.repeat(finalScore) + '☆'.repeat(5 - finalScore), starColor: starColors[finalScore - 1], starLabel: starLabels[finalScore - 1], illumination };
 }
 
-// 時間帯別の星空スコアを計算（月の出没 × 天気）
 function getNightStarSlots(
   date: Date,
   lat: number,
@@ -107,7 +131,7 @@ function getNightStarSlots(
   const elapsed = (date.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
   const age = ((elapsed % lunarCycle) + lunarCycle) % lunarCycle;
   const illumination = (1 - Math.cos((age / lunarCycle) * 2 * Math.PI)) / 2;
-  const moonPenalty = Math.round(illumination * 3); // 0(新月)〜3(満月)の減点
+  const moonPenalty = Math.round(illumination * 3);
 
   const slots: { hour: number; score: number; moonUp: boolean }[] = [];
   for (let i = 0; i < 10; i++) {
@@ -138,14 +162,11 @@ function getNightStarSlots(
 }
 
 function getWeatherLabel(cloudcover: number, weathercode: number) {
-  // weathercodeを最優先
   if (weathercode >= 61) return { label: '🌧️ 雨', badge: '×', badgeColor: '#e17055' };
   if (weathercode >= 51) return { label: '🌦️ 小雨', badge: '△', badgeColor: '#fdcb6e' };
   if (weathercode >= 45) return { label: '🌫️ 霧', badge: '△', badgeColor: '#fdcb6e' };
-  // weathercode 0-2は快晴・晴れ確定（雲量は無視）
   if (weathercode <= 1)  return { label: '☀️ 快晴', badge: '◎', badgeColor: '#00b894' };
   if (weathercode <= 2)  return { label: '🌤️ 晴れ', badge: '○', badgeColor: '#0984e3' };
-  // weathercode 3（曇りがち）以上はcloudcoverで細分
   if (cloudcover <= 30)  return { label: '☀️ 快晴', badge: '◎', badgeColor: '#00b894' };
   if (cloudcover <= 60)  return { label: '🌤️ 晴れ', badge: '○', badgeColor: '#0984e3' };
   if (cloudcover <= 85)  return { label: '⛅ 曇り', badge: '△', badgeColor: '#636e72' };
@@ -248,6 +269,38 @@ function StarStr(count: number) {
   return '★'.repeat(count) + '☆'.repeat(5 - count);
 }
 
+// ─────────────────────────────────────────────
+// 扇形オーバーレイ描画（ビジュアル方位計）
+// ─────────────────────────────────────────────
+function drawFanOverlay(map: any, L: any, lat: number, lng: number, bearing: number, color: string, fovDeg = 60) {
+  const R = 0.006; // 扇形の半径（度）
+  const steps = 32;
+  const halfFov = fovDeg / 2;
+  const points: [number, number][] = [[lat, lng]];
+  for (let i = 0; i <= steps; i++) {
+    const angleDeg = bearing - halfFov + (fovDeg * i) / steps;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    points.push([lat + R * Math.cos(angleRad), lng + R * Math.sin(angleRad)]);
+  }
+  points.push([lat, lng]);
+  return L.polygon(points, {
+    color,
+    fillColor: color,
+    fillOpacity: 0.18,
+    weight: 1.5,
+    opacity: 0.7,
+  });
+}
+
+function drawArrow(map: any, L: any, lat: number, lng: number, azimuth: number, color: string) {
+  const dist = 0.008;
+  const endLat = lat + dist * Math.cos((azimuth * Math.PI) / 180);
+  const endLng = lng + dist * Math.sin((azimuth * Math.PI) / 180);
+  const arrow = L.polyline([[lat, lng], [endLat, endLng]], { color, weight: 4, opacity: 0.9 });
+  const head = L.circleMarker([endLat, endLng], { radius: 8, color, fillColor: color, fillOpacity: 1, weight: 0 });
+  return L.layerGroup([arrow, head]).addTo(map);
+}
+
 function CameraLogo({ size = 72 }: { size?: number }) {
   return (
     <svg width={size} height={Math.round(size * 0.75)} viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg">
@@ -303,16 +356,13 @@ function saveMemo(memo: Memo) {
   localStorage.setItem(MEMOS_KEY, JSON.stringify(memos.slice(0, 50)));
 }
 
-function drawArrow(map: any, L: any, lat: number, lng: number, azimuth: number, color: string) {
-  const dist = 0.008;
-  const endLat = lat + dist * Math.cos((azimuth * Math.PI) / 180);
-  const endLng = lng + dist * Math.sin((azimuth * Math.PI) / 180);
-  const arrow = L.polyline([[lat, lng], [endLat, endLng]], { color, weight: 4, opacity: 0.9 });
-  const head = L.circleMarker([endLat, endLng], { radius: 8, color, fillColor: color, fillOpacity: 1, weight: 0 });
-  return L.layerGroup([arrow, head]).addTo(map);
-}
-
+// ─────────────────────────────────────────────
+// メインコンポーネント
+// ─────────────────────────────────────────────
 export default function Page() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [now, setNow] = useState<Date | null>(null);
   const [spot, setSpot] = useState<Spot | null>(null);
   const [showNight, setShowNight] = useState(false);
@@ -344,6 +394,8 @@ export default function Page() {
   const [requestName, setRequestName] = useState('');
   const [requestNote, setRequestNote] = useState('');
   const [requestSent, setRequestSent] = useState(false);
+  // 撮影レシピ表示用
+  const [showRecipe, setShowRecipe] = useState(false);
 
   const sunriseMapRef = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -352,7 +404,9 @@ export default function Page() {
   const leafletMap = useRef<any>(null);
   const resultLeafletMap = useRef<any>(null);
   const arrowLayer = useRef<any>(null);
+  const fanLayer = useRef<any>(null);
 
+  // ─── 初期化 & URLパラメータ復元 ───
   useEffect(() => {
     setNow(new Date());
     setSelectedDate(toDateString(new Date()));
@@ -360,8 +414,27 @@ export default function Page() {
     setFavorites(loadFavorites());
     setMemos(loadMemos());
     const t = setInterval(() => setNow(new Date()), 60000);
+
+    // URLパラメータからスポットを復元
+    const urlLat  = searchParams.get('lat');
+    const urlLng  = searchParams.get('lng');
+    const urlBear = searchParams.get('bearing');
+    const urlName = searchParams.get('spotName');
+    if (urlLat && urlLng && urlBear && urlName) {
+      const lat     = parseFloat(urlLat);
+      const lng     = parseFloat(urlLng);
+      const bearing = parseInt(urlBear, 10);
+      if (!isNaN(lat) && !isNaN(lng) && !isNaN(bearing)) {
+        const restored: Spot = { name: decodeURIComponent(urlName), lat, lng, bearing };
+        setSpot(restored);
+        setQuery(restored.name);
+        setManualBearing(bearing);
+        setStep('result');
+      }
+    }
+
     return () => clearInterval(t);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!spot) return;
@@ -397,6 +470,7 @@ export default function Page() {
     }, 500);
   }, [query]);
 
+  // ─── 方位設定マップ（扇形オーバーレイ付き） ───
   useEffect(() => {
     if (step !== 'bearing' || !pendingSpot || !mapRef.current) return;
     const initMap = () => {
@@ -410,7 +484,6 @@ export default function Page() {
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
       L.marker([pendingSpot.lat, pendingSpot.lng]).addTo(map);
       leafletMap.current = map;
-      // LeafletのzIndexをヘッダーより下に強制設定
       const panes = mapEl.querySelectorAll('.leaflet-pane, .leaflet-control-container');
       panes.forEach((p: any) => { p.style.zIndex = '1'; });
     };
@@ -420,16 +493,27 @@ export default function Page() {
     }
   }, [step, pendingSpot]);
 
+  // ─── 扇形オーバーレイ更新（manualBearing 変化時） ───
   useEffect(() => {
     if (!leafletMap.current || !pendingSpot) return;
     const L = (window as any).L;
     if (!L) return;
+
+    // 既存の矢印・扇形を除去
     if (arrowLayer.current) leafletMap.current.removeLayer(arrowLayer.current);
-    const dist = 0.003;
+    if (fanLayer.current) leafletMap.current.removeLayer(fanLayer.current);
+
+    // 扇形オーバーレイ（カメラ画角 60°）
+    const fan = drawFanOverlay(leafletMap.current, L, pendingSpot.lat, pendingSpot.lng, manualBearing, '#e17055', 60);
+    fan.addTo(leafletMap.current);
+    fanLayer.current = fan;
+
+    // 中央の向き矢印
+    const dist = 0.005;
     const endLat = pendingSpot.lat + dist * Math.cos((manualBearing * Math.PI) / 180);
     const endLng = pendingSpot.lng + dist * Math.sin((manualBearing * Math.PI) / 180);
-    const arrow = L.polyline([[pendingSpot.lat, pendingSpot.lng], [endLat, endLng]], { color: '#e17055', weight: 4, opacity: 0.9 }).addTo(leafletMap.current);
-    const arrowHead = L.circleMarker([endLat, endLng], { radius: 8, color: '#e17055', fillColor: '#e17055', fillOpacity: 1, weight: 0 }).addTo(leafletMap.current);
+    const arrow = L.polyline([[pendingSpot.lat, pendingSpot.lng], [endLat, endLng]], { color: '#e17055', weight: 4, opacity: 0.95 });
+    const arrowHead = L.circleMarker([endLat, endLng], { radius: 7, color: '#e17055', fillColor: '#e17055', fillOpacity: 1, weight: 0 });
     arrowLayer.current = L.layerGroup([arrow, arrowHead]);
     arrowLayer.current.addTo(leafletMap.current);
   }, [manualBearing, pendingSpot]);
@@ -446,7 +530,10 @@ export default function Page() {
       const map = L.map(mapEl).setView([spot.lat, spot.lng], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
       L.marker([spot.lat, spot.lng]).addTo(map);
-      if (suggestionResult.azimuth != null) drawArrow(map, L, spot.lat, spot.lng, suggestionResult.azimuth, '#f39c12');
+      if (suggestionResult.azimuth != null) {
+        drawFanOverlay(map, L, spot.lat, spot.lng, suggestionResult.azimuth, '#f39c12', 60).addTo(map);
+        drawArrow(map, L, spot.lat, spot.lng, suggestionResult.azimuth, '#f39c12');
+      }
       resultLeafletMap.current = map;
     };
     if ((window as any).L) { initResultMap(); } else {
@@ -455,7 +542,7 @@ export default function Page() {
     }
   }, [suggestionResult, spot]);
 
-  // 日の出・日の入り方角地図
+  // 日の出・日の入り方角地図（扇形付き）
   useEffect(() => {
     if (!spot || step !== 'result' || !sunriseMapRef.current) return;
     const srAzimuth = getSunDirection(new Date(), spot.lat, spot.lng, 'sunrise').azimuth;
@@ -469,6 +556,9 @@ export default function Page() {
       const map = L.map(mapEl, { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false }).setView([spot.lat, spot.lng], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
       L.marker([spot.lat, spot.lng]).addTo(map);
+      // 日の出・日の入りの扇形
+      drawFanOverlay(map, L, spot.lat, spot.lng, srAzimuth, '#f39c12', 30).addTo(map);
+      drawFanOverlay(map, L, spot.lat, spot.lng, ssAzimuth, '#e74c3c', 30).addTo(map);
       drawArrow(map, L, spot.lat, spot.lng, srAzimuth, '#f39c12');
       drawArrow(map, L, spot.lat, spot.lng, ssAzimuth, '#e74c3c');
     };
@@ -577,15 +667,27 @@ export default function Page() {
     setFavorites(loadFavorites());
   };
 
+  // ─── URL共有機能（強化版） ───
   const handleShare = () => {
-    if (!spot || !scene) return;
-    const text = `📍 ${spot.name}\n${scene.emoji} ${scene.label}\n\n撮影タイミングをチェック👇\nhttps://zekkei-finder.com\n\n#絶景ファインダー #写真撮影 #絶景`;
+    if (!spot) return;
+    const base = typeof window !== 'undefined' ? window.location.origin : 'https://zekkei-finder.com';
+    const params = new URLSearchParams({
+      lat:      spot.lat.toString(),
+      lng:      spot.lng.toString(),
+      bearing:  spot.bearing.toString(),
+      spotName: encodeURIComponent(spot.name),
+    });
+    const shareUrl = `${base}/?${params.toString()}`;
+
+    const sceneLabel = scene?.label ?? '';
+    const shareText = `📍 ${spot.name}\n${scene?.emoji ?? ''} ${sceneLabel}\n\n撮影タイミングをチェック👇\n${shareUrl}\n\n#絶景ファインダー #写真撮影 #絶景`;
+
     if (navigator.share) {
-      navigator.share({ text }).catch(() => {});
+      navigator.share({ title: `絶景ファインダー｜${spot.name}`, text: shareText, url: shareUrl }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(text).then(() => {
-        setShareMsg('コピーしました！');
-        setTimeout(() => setShareMsg(''), 2000);
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setShareMsg('URLをコピーしました！');
+        setTimeout(() => setShareMsg(''), 2500);
       });
     }
   };
@@ -628,7 +730,8 @@ export default function Page() {
   const isMorning = currentHour < solarNoon;
   const scene = sunPos && result ? getScene(sunPos.altitude, result.angleDiff, isMorning, weather?.cloudcover, weather?.weathercode) : null;
   const sunDesc = sunPos && result ? getSunDesc(sunPos.altitude, result.angleDiff) : null;
-  // 夜の時間帯（20:00〜翌4:00）の天気を取得して星空スコアに使う
+  const recipe = scene ? getRecipe(scene.label) : null;
+
   const nightWeather = hourlyWeather.filter(w => {
     const wDate = new Date(w.timeStr);
     const wh = wDate.getHours();
@@ -681,7 +784,6 @@ export default function Page() {
     nowStars >= 3 ? { level: 'MID', label: '悪くない。行ける距離なら◎', color: '#d4a017', bg: 'rgba(212,160,23,0.12)', border: 'rgba(212,160,23,0.35)' } :
     { level: 'LOW', label: '別の時間帯を狙おう', color: '#b2bec3', bg: 'rgba(178,190,195,0.12)', border: 'rgba(178,190,195,0.35)' };
 
-  // 今日撮れるシーン：夜以外は全時間帯を連続ブロックで表示（曇り・雨はグレーアウト）
   type SceneBlock = { label: string; sc: ReturnType<typeof getScene>; start: string; end: string; isBad: boolean };
   const sceneBlocks: SceneBlock[] = [];
   hourlyList.forEach(({ h, m, sc }) => {
@@ -695,7 +797,6 @@ export default function Page() {
       sceneBlocks.push({ label: sc.label, sc, start: timeStr, end: timeStr, isBad });
     }
   });
-  // endを+30分補正して次のブロックとの隙間をなくす（例：6:30→7:00、7:30→8:00）
   sceneBlocks.forEach(block => {
     const [hh, mm] = block.end.split(':').map(Number);
     const nextMm = mm === 30 ? 0 : 30;
@@ -705,6 +806,9 @@ export default function Page() {
 
   const visibleList = showNight ? hourlyList : hourlyList.filter(({ sc, isNow }) => !sc.isNight || isNow);
 
+  // ─────────────────────────────────────────────
+  // ガイドページ
+  // ─────────────────────────────────────────────
   if (step === 'guide') {
     return (
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -717,7 +821,7 @@ export default function Page() {
         <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1.5rem 1.2rem' }}>
           {[
             { step: '01', title: 'スポットを検索する', desc: '場所名を入力するか、現在地ボタンでGPSから自動取得。Google Mapsで調べた緯度経度の直接入力も可能です。', emoji: '📍' },
-            { step: '02', title: 'カメラを向ける方向を設定', desc: 'スマホのコンパスで自動取得するか、スライダーで手動調整。地図上の赤い矢印がカメラの向きを示します。', emoji: '📐' },
+            { step: '02', title: 'カメラを向ける方向を設定', desc: 'スマホのコンパスで自動取得するか、スライダーで手動調整。地図上の赤い扇形がカメラの撮影範囲（画角60°）を示します。', emoji: '📐' },
             { step: '03', title: '撮影コンディションを確認', desc: '現在の光の状態・天気・日の出日の入り時刻を確認。今日撮れるシーン一覧で一日の撮影プランが立てられます。', emoji: '🌞' },
             { step: '04', title: '日付・目的から計画する', desc: '「日付・目的から探す」タブで朝日・夕陽・星空の最適な撮影方向と時間帯を事前にチェックできます。', emoji: '📅' },
             { step: '05', title: 'お気に入り保存・メモ', desc: 'よく行くスポットはお気に入りに保存。撮影メモでその日の設定値や感想を記録できます。', emoji: '⭐' },
@@ -743,6 +847,9 @@ export default function Page() {
     );
   }
 
+  // ─────────────────────────────────────────────
+  // スポットリクエストページ
+  // ─────────────────────────────────────────────
   if (step === 'request') {
     return (
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -784,6 +891,9 @@ export default function Page() {
     );
   }
 
+  // ─────────────────────────────────────────────
+  // トップページ
+  // ─────────────────────────────────────────────
   if (step === 'top') {
     return (
       <main style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#0f0c29 0%,#302b63 50%,#e17055 100%)', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
@@ -825,11 +935,15 @@ export default function Page() {
     );
   }
 
+  // ─────────────────────────────────────────────
+  // メイン画面（検索・方位設定・結果）
+  // ─────────────────────────────────────────────
   return (
     <>
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" async />
       <main style={{ minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+        {/* ── ヘッダー ── */}
         <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e7', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 100 }}>
           <div style={{ maxWidth: '480px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.7rem' }}>
@@ -898,9 +1012,15 @@ export default function Page() {
         </div>
 
         <div style={{ maxWidth: '480px', margin: '0 auto', padding: '1rem 1.2rem 2rem' }}>
+
+          {/* ── 方位設定 ── */}
           {step === 'bearing' && pendingSpot && (
             <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', position: 'relative', zIndex: 0 }}>
               <div ref={mapRef} style={{ height: '220px', background: '#e0e0e0', zIndex: 1, position: 'relative', isolation: 'isolate' }} />
+              {/* 扇形の説明バッジ */}
+              <div style={{ position: 'absolute', top: '8px', left: '8px', background: 'rgba(225,112,85,0.9)', color: '#fff', fontSize: '0.7rem', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', zIndex: 10 }}>
+                📷 赤い扇形 = カメラ画角（60°）
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #f0f0f0' }}>
                 <button onClick={() => setMode('A')} style={{ padding: '0.8rem', background: mode === 'A' ? '#fff8f0' : '#f5f5f7', border: 'none', borderBottom: mode === 'A' ? '2px solid #e17055' : '2px solid transparent', cursor: 'pointer', fontSize: '0.85rem', fontWeight: mode === 'A' ? '700' : '400', color: mode === 'A' ? '#e17055' : '#888' }}>
                   📐 方向を指定
@@ -912,7 +1032,7 @@ export default function Page() {
               {mode === 'A' && (
                 <div style={{ padding: '1.2rem' }}>
                   <div style={{ padding: '0.6rem 1rem', background: '#fff8f0', borderRadius: '8px', fontSize: '0.8rem', color: '#e17055', fontWeight: '600', marginBottom: '1rem' }}>
-                    🎯 赤い矢印がカメラの向きです。スライダーで調整してください。
+                    🎯 赤い扇形がカメラの撮影範囲です。スライダーで調整してください。
                   </div>
                   <button onClick={startCompass} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', background: compass != null ? '#00b894' : '#0984e3', color: '#fff', border: 'none', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer', marginBottom: '0.8rem' }}>
                     {compass != null ? `🧭 ${compass}°（${bearingLabel(compass)}）取得中` : '🧭 コンパスで自動取得'}
@@ -958,6 +1078,7 @@ export default function Page() {
             </div>
           )}
 
+          {/* ── 結果画面 ── */}
           {step === 'result' && spot && (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -966,15 +1087,20 @@ export default function Page() {
                   <button onClick={handleToggleFavorite} style={{ padding: '6px 12px', borderRadius: '20px', border: '1.5px solid', borderColor: isFavorite ? '#f7b731' : '#e5e5e7', background: isFavorite ? '#fffdf0' : '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: isFavorite ? '#d4a017' : '#888' }}>
                     {isFavorite ? '⭐ 保存済み' : '☆ お気に入り'}
                   </button>
-                  <button onClick={handleShare} style={{ padding: '6px 12px', borderRadius: '20px', border: '1.5px solid #e5e5e7', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>📤 シェア</button>
+                  <button onClick={handleShare} style={{ padding: '6px 12px', borderRadius: '20px', border: '1.5px solid #e5e5e7', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>🔗 URL共有</button>
                 </div>
               </div>
-              {shareMsg && <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#00b894', marginBottom: '8px', fontWeight: '600' }}>{shareMsg}</div>}
+              {shareMsg && (
+                <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#00b894', marginBottom: '8px', fontWeight: '600', background: '#f0fff8', borderRadius: '8px', padding: '8px' }}>
+                  ✅ {shareMsg}
+                </div>
+              )}
               <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
                 📍 {spot.name}
                 <span onClick={() => { setStep('search'); setQuery(''); setSpot(null); setSuggestionResult(null); }} style={{ marginLeft: '12px', color: '#0984e3', cursor: 'pointer', fontSize: '0.8rem' }}>スポットを変更</span>
               </div>
 
+              {/* ── 今すぐ撮れるか？カード ── */}
               {!suggestionResult && nowJudge && (
                 <div style={{ borderRadius: '18px', background: nowJudge.bg, border: `1.5px solid ${nowJudge.border}`, padding: '1.2rem 1.4rem', marginBottom: '1rem' }}>
                   <div style={{ fontSize: '0.7rem', fontWeight: '700', color: nowJudge.color, letterSpacing: '2px', marginBottom: '8px' }}>▶ 今すぐ撮れるか？</div>
@@ -995,6 +1121,62 @@ export default function Page() {
                 </div>
               )}
 
+              {/* ── 撮影レシピカード（新機能） ── */}
+              {!suggestionResult && scene && recipe && !scene.isNight && (
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f0e8d8' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showRecipe ? '0.8rem' : 0 }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>📷 撮影レシピ <span style={{ fontSize: '0.72rem', color: '#e67e22', fontWeight: '600', background: '#fff8f0', padding: '2px 8px', borderRadius: '20px', marginLeft: '4px' }}>{scene.label}</span></div>
+                    <button onClick={() => setShowRecipe(!showRecipe)} style={{ fontSize: '0.8rem', color: '#0984e3', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+                      {showRecipe ? '閉じる' : '表示する'}
+                    </button>
+                  </div>
+                  {showRecipe && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div style={{ background: '#fff8f0', borderRadius: '10px', padding: '0.7rem' }}>
+                          <div style={{ fontSize: '0.68rem', color: '#e67e22', fontWeight: '700', marginBottom: '3px' }}>露出補正</div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#333' }}>{recipe.ev}</div>
+                        </div>
+                        <div style={{ background: '#f0f8ff', borderRadius: '10px', padding: '0.7rem' }}>
+                          <div style={{ fontSize: '0.68rem', color: '#0984e3', fontWeight: '700', marginBottom: '3px' }}>ホワイトバランス</div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#333' }}>{recipe.wb}</div>
+                        </div>
+                      </div>
+                      <div style={{ background: '#f5f5f7', borderRadius: '10px', padding: '0.7rem' }}>
+                        <div style={{ fontSize: '0.68rem', color: '#666', fontWeight: '700', marginBottom: '3px' }}>撮影モード</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#333' }}>{recipe.mode}</div>
+                      </div>
+                      <div style={{ background: 'linear-gradient(135deg,#0f0c29,#302b63)', borderRadius: '10px', padding: '0.8rem 1rem' }}>
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.7)', fontWeight: '700', marginBottom: '3px' }}>💡 プロのワンポイント</div>
+                        <div style={{ fontSize: '0.85rem', color: '#fff', lineHeight: 1.6 }}>{recipe.tip}</div>
+                      </div>
+                    </div>
+                  )}
+                  {!showRecipe && (
+                    <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '4px' }}>{recipe.tip}</div>
+                  )}
+                </div>
+              )}
+
+              {/* 夜の撮影レシピ */}
+              {!suggestionResult && scene && recipe && scene.isNight && (
+                <div style={{ background: 'linear-gradient(135deg,#0f0c29,#302b63)', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#fff', marginBottom: '0.8rem' }}>📷 {scene.label}の撮影レシピ</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0.6rem' }}>
+                      <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.6)', marginBottom: '2px' }}>設定</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#fff' }}>{recipe.ev}</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0.6rem' }}>
+                      <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.6)', marginBottom: '2px' }}>WB</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#fff' }}>{recipe.wb}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>💡 {recipe.tip}</div>
+                </div>
+              )}
+
+              {/* ── 提案結果（モードB） ── */}
               {suggestionResult && (
                 <>
                   <div style={{ background: suggestionResult.type === 'sunrise' ? 'linear-gradient(135deg,#f39c12,#f7b731)' : suggestionResult.type === 'sunset' ? 'linear-gradient(135deg,#c0392b,#e74c3c)' : 'linear-gradient(135deg,#0f0c29,#302b63)', borderRadius: '20px', padding: '1.5rem', marginBottom: '1rem', color: suggestionResult.type === 'sunrise' ? '#3d2200' : '#fff' }}>
@@ -1026,13 +1208,14 @@ export default function Page() {
                   </div>
                   {suggestionResult.type !== 'star' && (
                     <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', position: 'relative', zIndex: 0 }}>
-                      <div style={{ padding: '0.8rem 1rem', fontSize: '0.8rem', fontWeight: '600', color: '#333', borderBottom: '1px solid #f0f0f0' }}>🗺️ カメラを向ける方向（黄色の矢印）</div>
+                      <div style={{ padding: '0.8rem 1rem', fontSize: '0.8rem', fontWeight: '600', color: '#333', borderBottom: '1px solid #f0f0f0' }}>🗺️ カメラを向ける方向（扇形 = 画角60°）</div>
                       <div ref={resultMapRef} style={{ height: '220px', background: '#e0e0e0', position: 'relative', isolation: 'isolate' }} />
                     </div>
                   )}
                 </>
               )}
 
+              {/* ── 現在の撮影コンディション ── */}
               {!suggestionResult && scene && sunPos && result && sunDesc && (
                 <>
                   {sunrise && sunset && (
@@ -1053,14 +1236,13 @@ export default function Page() {
                       </div>
                       <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', position: 'relative', zIndex: 0 }}>
                         <div style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#555', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '12px' }}>
-                          <span><span style={{ color: '#f39c12', fontWeight: '700' }}>——</span> 日の出方角</span>
-                          <span><span style={{ color: '#e74c3c', fontWeight: '700' }}>——</span> 日の入り方角</span>
+                          <span><span style={{ color: '#f39c12', fontWeight: '700' }}>——</span> 日の出方角（扇形）</span>
+                          <span><span style={{ color: '#e74c3c', fontWeight: '700' }}>——</span> 日の入り方角（扇形）</span>
                         </div>
                         <div ref={sunriseMapRef} style={{ height: '200px', background: '#e0e0e0', position: 'relative', isolation: 'isolate' }} />
                       </div>
                     </>
                   )}
-                  {/* 高度・方位・角度差は非表示 */}
                   <div style={{ background: scene.grad, borderRadius: '20px', padding: '2rem 1.8rem', color: scene.text, marginBottom: '1rem', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '7rem', opacity: 0.15 }}>{scene.emoji}</div>
                     <div style={{ fontSize: '0.8rem', fontWeight: '600', opacity: 0.8, marginBottom: '0.4rem', letterSpacing: '1px', textTransform: 'uppercase' }}>現在の撮影コンディション</div>
@@ -1075,6 +1257,7 @@ export default function Page() {
                 </>
               )}
 
+              {/* ── 今日撮れるシーン ── */}
               {sceneBlocks.length > 0 && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>📅 今日撮れるシーン</div>
@@ -1094,6 +1277,7 @@ export default function Page() {
                 </div>
               )}
 
+              {/* ── 3日間天気予報 ── */}
               {dayForecasts.length > 0 && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '4px' }}>📆 3日間の撮影チャンス</div>
@@ -1110,6 +1294,7 @@ export default function Page() {
                 </div>
               )}
 
+              {/* ── 天気・月 ── */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                   <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>天気</div>
@@ -1120,7 +1305,6 @@ export default function Page() {
                       <div style={{ fontSize: '0.75rem', color: '#444' }}>気温 {weather.temperature}℃</div>
                       <div style={{ marginTop: '8px', fontSize: '1.2rem', fontWeight: '800', color: wd.badgeColor, marginBottom: '10px' }}>{wd.badge}</div>
                       {hourlyWeather.length > 0 && (() => {
-                        // 今日の時間帯別天気を連続ブロックにまとめる
                         const todayStr = now.toISOString().split('T')[0];
                         const todaySlots = hourlyWeather.filter(w => w.timeStr.startsWith(todayStr) && new Date(w.timeStr).getHours() >= now.getHours());
                         const blocks: { label: string; emoji: string; badge: string; badgeColor: string; start: number; end: number }[] = [];
@@ -1161,7 +1345,6 @@ export default function Page() {
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '6px', fontWeight: '600' }}>今夜の時間帯別おすすめ度</div>
                       {(() => {
-                        // 連続する同じスコアをブロックにまとめる
                         const blocks: { score: number; start: number; end: number }[] = [];
                         nightStarSlots.forEach(({ hour, score }) => {
                           const last = blocks[blocks.length - 1];
@@ -1171,24 +1354,19 @@ export default function Page() {
                             blocks.push({ score, start: hour, end: hour });
                           }
                         });
-                        return blocks.map((b, i) => {
-                          const endHour = b.end === 23 ? 0 : b.end + 1;
-                          const timeLabel = b.start === b.end
-                            ? `${b.start}時〜${endHour}時`
-                            : `${b.start}時〜${endHour}時`;
-                          return (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                              <span style={{ fontSize: '12px', color: '#c8a84b', letterSpacing: '-1px', flexShrink: 0 }}>{'★'.repeat(b.score)}{'☆'.repeat(5 - b.score)}</span>
-                              <span style={{ fontSize: '11px', color: '#666' }}>{timeLabel}</span>
-                            </div>
-                          );
-                        });
+                        return blocks.map((b, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '12px', color: '#c8a84b', letterSpacing: '-1px', flexShrink: 0 }}>{'★'.repeat(b.score)}{'☆'.repeat(5 - b.score)}</span>
+                            <span style={{ fontSize: '11px', color: '#666' }}>{b.start}時〜{b.end + 1}時</span>
+                          </div>
+                        ));
                       })()}
                     </div>
                   )}
                 </div>
               </div>
 
+              {/* ── 撮影メモ ── */}
               <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>📝 撮影メモ</div>
@@ -1211,6 +1389,7 @@ export default function Page() {
                 )) : <div style={{ fontSize: '0.82rem', color: '#bbb' }}>まだメモがありません</div>}
               </div>
 
+              {/* ── 24時間タイムライン ── */}
               <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.2rem 0.4rem' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>今日のタイムライン</div>
