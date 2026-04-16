@@ -864,7 +864,7 @@ export default function Page() {
   };
 
   const handleGenerateCard = async () => {
-    if (!spot || !scene || !sunrise || !sunset) return;
+    if (!spot || !scene || !sunrise || !sunset || !now) return;
     setGeneratingCard(true);
     const todaySr = getSunDirection(now as Date, spot.lat, spot.lng, 'sunrise');
     const todaySs = getSunDirection(now as Date, spot.lat, spot.lng, 'sunset');
