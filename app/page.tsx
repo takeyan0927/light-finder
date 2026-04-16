@@ -866,9 +866,9 @@ export default function Page() {
   const handleGenerateCard = async () => {
     if (!spot || !scene || !sunrise || !sunset) return;
     setGeneratingCard(true);
-    const todaySr = getSunDirection(now, spot.lat, spot.lng, 'sunrise');
-    const todaySs = getSunDirection(now, spot.lat, spot.lng, 'sunset');
-    const moonT = getMoonTimes(now, spot.lat, spot.lng);
+    const todaySr = getSunDirection(now as Date, spot.lat, spot.lng, 'sunrise');
+    const todaySs = getSunDirection(now as Date, spot.lat, spot.lng, 'sunset');
+    const moonT = getMoonTimes(now as Date, spot.lat, spot.lng);
     const recipe = getRecipe(scene.label);
     const dateStr = now.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
     const magicStartTime = formatTime(new Date(sunrise.getTime() - 30 * 60000));
@@ -937,9 +937,9 @@ export default function Page() {
 
   if (!now) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#888' }}>計算中...</div>;
 
-  const sunPos = spot ? getSunPosition(now, spot.lat, spot.lng) : null;
+  const sunPos = spot && now ? getSunPosition(now, spot.lat, spot.lng) : null;
   const result = spot && sunPos ? analyzeLighting(sunPos, spot.bearing) : null;
-  const sunTimes = spot ? SunCalc.getTimes(now, spot.lat, spot.lng) : null;
+  const sunTimes = spot && now ? SunCalc.getTimes(now, spot.lat, spot.lng) : null;
   const sunrise = sunTimes?.sunrise;
   const sunset = sunTimes?.sunset;
   const sunriseHour = sunrise ? sunrise.getHours() + sunrise.getMinutes() / 60 : 6;
@@ -962,12 +962,12 @@ export default function Page() {
   const nightWeathercode = nightWeather.length > 0
     ? Math.max(...nightWeather.map(w => w.weathercode))
     : undefined;
-  const moon = getMoonForDate(now, nightCloudAvg, nightWeathercode);
-  const moonTimes = spot ? getMoonTimes(now, spot.lat, spot.lng) : null;
-  const nightStarSlots = spot ? getNightStarSlots(now, spot.lat, spot.lng, hourlyWeather) : [];
+  const moon = getMoonForDate(now ?? new Date(), nightCloudAvg, nightWeathercode);
+  const moonTimes = spot && now ? getMoonTimes(now, spot.lat, spot.lng) : null;
+  const nightStarSlots = spot && now ? getNightStarSlots(now, spot.lat, spot.lng, hourlyWeather) : [];
   const wd = weather ? getWeatherLabel(weather.cloudcover, weather.weathercode) : null;
-  const todaySunrise = spot ? getSunDirection(now, spot.lat, spot.lng, 'sunrise') : null;
-  const todaySunset = spot ? getSunDirection(now, spot.lat, spot.lng, 'sunset') : null;
+  const todaySunrise = spot && now ? getSunDirection(now, spot.lat, spot.lng, 'sunrise') : null;
+  const todaySunset = spot && now ? getSunDirection(now, spot.lat, spot.lng, 'sunset') : null;
   const spotMemos = memos.filter(m => m.spotName === spot?.name);
 
   const hourlyList = spot ? Array.from({ length: 48 }, (_, i) => {
