@@ -1097,10 +1097,19 @@ export default function Page() {
                   ✅ {shareMsg}
                 </div>
               )}
-              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.6rem' }}>
                 📍 {spot.name}
                 <span onClick={() => { setStep('search'); setQuery(''); setSpot(null); setSuggestionResult(null); }} style={{ marginLeft: '12px', color: '#0984e3', cursor: 'pointer', fontSize: '0.8rem' }}>スポットを変更</span>
               </div>
+              {/* 絶景タビスト連携ボタン */}
+              <a
+                href={`https://zekkei-tavist.com/spots.html?q=${encodeURIComponent(spot.name)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '20px', background: 'linear-gradient(135deg,#1a3a2a,#2d5a3d)', color: '#e8c97a', fontSize: '0.75rem', fontWeight: '600', textDecoration: 'none', marginBottom: '1rem' }}
+              >
+                🌿 絶景タビストで記事を見る
+              </a>
 
               {/* ── 今すぐ撮れるか？カード ── */}
               {!suggestionResult && nowJudge && (
