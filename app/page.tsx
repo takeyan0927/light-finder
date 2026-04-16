@@ -97,6 +97,194 @@ function getSunDesc(altitude: number, angleDiff: number) {
   return { altDesc, dirDesc };
 }
 
+// ─────────────────────────────────────────────
+// 月の出・月の入り時刻を取得
+// ─────────────────────────────────────────────
+function getMoonTimes(date: Date, lat: number, lng: number) {
+  const times = SunCalc.getMoonTimes(date, lat, lng);
+  const rise = times.rise instanceof Date ? formatTime(times.rise) : null;
+  const set  = times.set  instanceof Date ? formatTime(times.set)  : null;
+  const moonPos = SunCalc.getMoonPosition(date, lat, lng);
+  const azimuth = Math.round((moonPos.azimuth * 180 / Math.PI + 180 + 360) % 360);
+  return { rise, set, azimuth };
+}
+
+// ─────────────────────────────────────────────
+// 撮影計画カード生成（Canvas API）
+// ─────────────────────────────────────────────
+async function generateShareCard(params: {
+  spotName: string;
+  date: string;
+  sunrise: string;
+  sunriseAzimuth: number;
+  sunset: string;
+  sunsetAzimuth: number;
+  magicStart: string;
+  magicEnd: string;
+  goldenStart: string;
+  goldenEnd: string;
+  moonRise: string | null;
+  moonSet: string | null;
+  moonPhase: string;
+  moonIllumination: number;
+  sceneLabel: string;
+  stars: number;
+  ev: string;
+  wb: string;
+  mode: string;
+  tip: string;
+}): Promise<string> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 800;
+  canvas.height = 960;
+  const ctx = canvas.getContext('2d')!;
+
+  // 背景グラデーション（明るめ）
+  const grad = ctx.createLinearGradient(0, 0, 800, 960);
+  grad.addColorStop(0, '#fff8f0');
+  grad.addColorStop(0.5, '#fff3e0');
+  grad.addColorStop(1, '#ffecd2');
+  ctx.fillStyle = grad;
+  ctx.roundRect(0, 0, 800, 960, 24);
+  ctx.fill();
+
+  // ヘッダーライン
+  ctx.fillStyle = '#e67e22';
+  ctx.fillRect(40, 40, 120, 3);
+
+  // タイトルラベル
+  ctx.font = '500 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#e67e22';
+  ctx.fillText('SHOOTING PLAN · 絶景ファインダー', 40, 80);
+
+  // スポット名
+  ctx.font = 'bold 52px -apple-system, sans-serif';
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillText(params.spotName.length > 12 ? params.spotName.slice(0, 12) + '…' : params.spotName, 40, 148);
+
+  // 日付
+  ctx.font = '400 26px -apple-system, sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.fillText(params.date, 40, 188);
+
+  // 区切り線
+  ctx.strokeStyle = 'rgba(225,112,85,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(40, 210); ctx.lineTo(760, 210); ctx.stroke();
+
+  // カード描画ヘルパー
+  const drawCard = (x: number, y: number, w: number, h: number, borderColor: string, bgAlpha: number) => {
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    (ctx as any).roundRect(x, y, w, h, 12);
+    ctx.fill();
+    ctx.stroke();
+  };
+
+  // 日の出カード
+  drawCard(40, 230, 340, 140, 'rgba(243,156,18,0.4)', 0.05);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#e67e22';
+  ctx.fillText('🌅 日の出', 60, 265);
+  ctx.font = 'bold 56px -apple-system, sans-serif';
+  ctx.fillStyle = '#e67e22';
+  ctx.fillText(params.sunrise, 60, 330);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.fillText(`方向 ${params.sunriseAzimuth}°`, 60, 358);
+
+  // 月の出カード
+  drawCard(420, 230, 340, 140, 'rgba(108,92,231,0.3)', 0.05);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#6c5ce7';
+  ctx.fillText('🌙 月の出', 440, 265);
+  ctx.font = 'bold 56px -apple-system, sans-serif';
+  ctx.fillStyle = '#6c5ce7';
+  ctx.fillText(params.moonRise ?? '−−:−−', 440, 330);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.fillText(`${params.moonPhase} ${params.moonIllumination}%`, 440, 358);
+
+  // 日の入りカード
+  drawCard(40, 390, 340, 140, 'rgba(225,112,85,0.4)', 0.05);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#e17055';
+  ctx.fillText('🌇 日の入り', 60, 425);
+  ctx.font = 'bold 56px -apple-system, sans-serif';
+  ctx.fillStyle = '#e17055';
+  ctx.fillText(params.sunset, 60, 490);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.fillText(`方向 ${params.sunsetAzimuth}°`, 60, 518);
+
+  // マジックアワーカード
+  drawCard(420, 390, 340, 140, 'rgba(241,196,15,0.5)', 0.05);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#d4a017';
+  ctx.fillText('✨ マジックアワー', 440, 425);
+  ctx.font = 'bold 34px -apple-system, sans-serif';
+  ctx.fillStyle = '#d4a017';
+  ctx.fillText(`${params.magicStart}〜${params.magicEnd}`, 440, 478);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.fillText(`ゴールデン ${params.goldenStart}〜${params.goldenEnd}`, 440, 518);
+
+  // 撮影レシピカード
+  drawCard(40, 550, 720, 180, 'rgba(0,0,0,0.08)', 0);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.fillText('📷 撮影レシピ', 60, 585);
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, 598); ctx.lineTo(740, 598); ctx.stroke();
+  const recipes = [
+    ['露出補正', params.ev],
+    ['ホワイトバランス', params.wb],
+    ['撮影モード', params.mode],
+  ];
+  recipes.forEach(([label, val], i) => {
+    ctx.font = '400 24px -apple-system, sans-serif';
+    ctx.fillStyle = '#999';
+    ctx.fillText(label, 60, 635 + i * 38);
+    ctx.font = '500 24px -apple-system, sans-serif';
+    ctx.fillStyle = '#333';
+    ctx.textAlign = 'right';
+    ctx.fillText(val, 740, 635 + i * 38);
+    ctx.textAlign = 'left';
+  });
+  ctx.font = '400 21px -apple-system, sans-serif';
+  ctx.fillStyle = '#bbb';
+  ctx.fillText('💡 ' + params.tip, 60, 718);
+
+  // シーン・おすすめ度カード
+  drawCard(40, 750, 720, 100, 'rgba(0,0,0,0.07)', 0);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.fillText('現在のシーン', 60, 785);
+  ctx.font = 'bold 30px -apple-system, sans-serif';
+  ctx.fillStyle = '#e67e22';
+  ctx.fillText(params.sceneLabel, 60, 830);
+  ctx.font = '400 22px -apple-system, sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.textAlign = 'right';
+  ctx.fillText('おすすめ度', 740, 785);
+  ctx.font = 'bold 30px -apple-system, sans-serif';
+  ctx.fillStyle = '#c8a84b';
+  ctx.fillText('★'.repeat(params.stars) + '☆'.repeat(5 - params.stars), 740, 830);
+  ctx.textAlign = 'left';
+
+  // フッター
+  ctx.font = '400 20px -apple-system, sans-serif';
+  ctx.fillStyle = '#ccc';
+  ctx.textAlign = 'center';
+  ctx.fillText('zekkei-finder.com　#絶景ファインダー　#風景写真', 400, 920);
+  ctx.textAlign = 'left';
+
+  return canvas.toDataURL('image/png');
+}
+
 function getMoonForDate(date: Date, nightCloudcover?: number, nightWeathercode?: number) {
   const knownNewMoon = new Date('2000-01-06T18:14:00Z');
   const lunarCycle = 29.53058867;
@@ -392,6 +580,8 @@ export default function Page() {
   const [requestSent, setRequestSent] = useState(false);
   // 撮影レシピ表示用
   const [showRecipe, setShowRecipe] = useState(false);
+  const [shareCardUrl, setShareCardUrl] = useState<string | null>(null);
+  const [generatingCard, setGeneratingCard] = useState(false);
 
   const sunriseMapRef = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -560,6 +750,13 @@ export default function Page() {
       drawFanOverlay(map, L, spot.lat, spot.lng, ssAzimuth, '#e74c3c', 30).addTo(map);
       drawArrow(map, L, spot.lat, spot.lng, srAzimuth, '#f39c12');
       drawArrow(map, L, spot.lat, spot.lng, ssAzimuth, '#e74c3c');
+      // 月の方向ベクトル（シルバー）
+      const moonPos = SunCalc.getMoonPosition(new Date(), spot.lat, spot.lng);
+      const moonAz = Math.round((moonPos.azimuth * 180 / Math.PI + 180 + 360) % 360);
+      if ((moonPos.altitude * 180 / Math.PI) > 0) {
+        drawFanOverlay(map, L, spot.lat, spot.lng, moonAz, '#a0a0c0', 20).addTo(map);
+        drawArrow(map, L, spot.lat, spot.lng, moonAz, '#a0a0c0');
+      }
     };
     if ((window as any).L) { initSunriseMap(); } else {
       const timer = setInterval(() => { if ((window as any).L) { clearInterval(timer); initSunriseMap(); } }, 100);
@@ -694,7 +891,53 @@ export default function Page() {
     });
   };
 
-  const handleSaveMemo = () => {
+  const handleGenerateCard = async () => {
+    if (!spot || !scene || !sunrise || !sunset) return;
+    setGeneratingCard(true);
+    const todaySr = getSunDirection(now, spot.lat, spot.lng, 'sunrise');
+    const todaySs = getSunDirection(now, spot.lat, spot.lng, 'sunset');
+    const moonT = getMoonTimes(now, spot.lat, spot.lng);
+    const recipe = getRecipe(scene.label);
+    const dateStr = now.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const magicStartTime = formatTime(new Date(sunrise.getTime() - 30 * 60000));
+    const goldenEndTime = formatTime(new Date(sunrise.getTime() + 60 * 60000));
+    const magicEndTime = formatTime(new Date(sunset.getTime() + 30 * 60000));
+    const goldenStartTime = formatTime(new Date(sunset.getTime() - 60 * 60000));
+    try {
+      const url = await generateShareCard({
+        spotName: spot.name,
+        date: dateStr,
+        sunrise: formatTime(sunrise),
+        sunriseAzimuth: todaySr.azimuth,
+        sunset: formatTime(sunset),
+        sunsetAzimuth: todaySs.azimuth,
+        magicStart: magicStartTime,
+        magicEnd: magicEndTime,
+        goldenStart: goldenStartTime,
+        goldenEnd: goldenEndTime,
+        moonRise: moonT.rise,
+        moonSet: moonT.set,
+        moonPhase: moon.phase.replace(/🌑|🌒|🌓|🌔|🌕/g, '').trim(),
+        moonIllumination: moon.illumination,
+        sceneLabel: scene.label,
+        stars: nowStars,
+        ev: recipe?.ev ?? '−',
+        wb: recipe?.wb ?? '−',
+        mode: recipe?.mode ?? '−',
+        tip: recipe?.tip ?? '',
+      });
+      setShareCardUrl(url);
+    } catch (e) { console.error(e); }
+    setGeneratingCard(false);
+  };
+
+  const handleDownloadCard = () => {
+    if (!shareCardUrl || !spot) return;
+    const a = document.createElement('a');
+    a.href = shareCardUrl;
+    a.download = `zekkei-finder-${spot.name}.png`;
+    a.click();
+  };
     if (!spot || !memoText.trim()) return;
     const memo: Memo = { spotName: spot.name, text: memoText, date: new Date().toLocaleDateString('ja-JP') };
     saveMemo(memo); setMemos(loadMemos()); setMemoText(''); setShowMemo(false);
@@ -746,6 +989,7 @@ export default function Page() {
     ? Math.max(...nightWeather.map(w => w.weathercode))
     : undefined;
   const moon = getMoonForDate(now, nightCloudAvg, nightWeathercode);
+  const moonTimes = spot ? getMoonTimes(now, spot.lat, spot.lng) : null;
   const nightStarSlots = spot ? getNightStarSlots(now, spot.lat, spot.lng, hourlyWeather) : [];
   const wd = weather ? getWeatherLabel(weather.cloudcover, weather.weathercode) : null;
   const todaySunrise = spot ? getSunDirection(now, spot.lat, spot.lng, 'sunrise') : null;
@@ -1246,9 +1490,10 @@ export default function Page() {
                         </div>
                       </div>
                       <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', position: 'relative', zIndex: 0 }}>
-                        <div style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#555', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '12px' }}>
-                          <span><span style={{ color: '#f39c12', fontWeight: '700' }}>——</span> 日の出方角（扇形）</span>
-                          <span><span style={{ color: '#e74c3c', fontWeight: '700' }}>——</span> 日の入り方角（扇形）</span>
+                        <div style={{ padding: '0.5rem 0.8rem', fontSize: '0.75rem', color: '#555', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                          <span><span style={{ color: '#f39c12', fontWeight: '700' }}>——</span> 日の出方角</span>
+                          <span><span style={{ color: '#e74c3c', fontWeight: '700' }}>——</span> 日の入り方角</span>
+                          <span><span style={{ color: '#a0a0c0', fontWeight: '700' }}>——</span> 月の方角（地平線上の時のみ）</span>
                         </div>
                         <div ref={sunriseMapRef} style={{ height: '200px', background: '#e0e0e0', position: 'relative', isolation: 'isolate' }} />
                       </div>
@@ -1351,7 +1596,23 @@ export default function Page() {
                   <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '4px', color: '#333' }}>{moon.phase}</div>
                   <div style={{ fontSize: '0.75rem', color: '#444', marginBottom: '2px' }}>{moon.moonDesc}</div>
                   <div style={{ fontSize: '0.75rem', color: '#444', marginBottom: '8px' }}>星空：{moon.starLabel}</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: '700', color: moon.starColor, marginBottom: '10px' }}>{moon.starStr}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '700', color: moon.starColor, marginBottom: '8px' }}>{moon.starStr}</div>
+                  {moonTimes && (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      {moonTimes.rise && (
+                        <div style={{ flex: 1, background: 'rgba(108,92,231,0.08)', borderRadius: '8px', padding: '6px 8px' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#6c5ce7', fontWeight: '600', marginBottom: '2px' }}>月の出</div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#6c5ce7' }}>{moonTimes.rise}</div>
+                        </div>
+                      )}
+                      {moonTimes.set && (
+                        <div style={{ flex: 1, background: 'rgba(108,92,231,0.08)', borderRadius: '8px', padding: '6px 8px' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#6c5ce7', fontWeight: '600', marginBottom: '2px' }}>月の入り</div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#6c5ce7' }}>{moonTimes.set}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {nightStarSlots.length > 0 && (
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '6px', fontWeight: '600' }}>今夜の時間帯別おすすめ度</div>
@@ -1376,6 +1637,38 @@ export default function Page() {
                   )}
                 </div>
               </div>
+
+              {/* ── 撮影計画カード生成 ── */}
+              {!suggestionResult && scene && sunrise && sunset && (
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid rgba(230,126,34,0.2)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>🎴 撮影計画カードを生成</div>
+                  <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.8rem', lineHeight: 1.6 }}>日の出・月・撮影レシピを1枚の画像にまとめてSNSにシェアできます</div>
+                  {!shareCardUrl ? (
+                    <button onClick={handleGenerateCard} disabled={generatingCard}
+                      style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', background: generatingCard ? '#e5e5e7' : 'linear-gradient(135deg,#e67e22,#e17055)', color: '#fff', border: 'none', fontSize: '0.95rem', fontWeight: '700', cursor: generatingCard ? 'default' : 'pointer' }}>
+                      {generatingCard ? '生成中...' : '📸 カードを生成する'}
+                    </button>
+                  ) : (
+                    <div>
+                      <img src={shareCardUrl} style={{ width: '100%', borderRadius: '12px', marginBottom: '0.8rem', border: '1px solid rgba(0,0,0,0.08)' }} alt="撮影計画カード" />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <button onClick={handleDownloadCard}
+                          style={{ padding: '0.7rem', borderRadius: '10px', background: '#e67e22', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}>
+                          ⬇️ 保存する
+                        </button>
+                        <button onClick={() => { if (shareCardUrl && spot) { navigator.share ? navigator.share({ title: `${spot.name}の撮影計画`, text: `#絶景ファインダー\n${spot.name}の撮影計画\nzekkei-finder.com` }) : navigator.clipboard.writeText(`#絶景ファインダー\n${spot.name}の撮影計画\nhttps://zekkei-finder.com`).then(() => setShareMsg('コピーしました！')); }}}
+                          style={{ padding: '0.7rem', borderRadius: '10px', background: '#0984e3', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}>
+                          📤 シェアする
+                        </button>
+                      </div>
+                      <button onClick={() => setShareCardUrl(null)}
+                        style={{ width: '100%', marginTop: '0.5rem', padding: '0.5rem', borderRadius: '8px', background: 'none', border: '1px solid #e5e5e7', color: '#888', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        再生成する
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ── 撮影メモ ── */}
               <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
