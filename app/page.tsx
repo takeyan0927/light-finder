@@ -910,6 +910,8 @@ export default function Page() {
     a.download = `zekkei-finder-${spot.name}.png`;
     a.click();
   };
+
+  const handleSaveMemo = () => {
     if (!spot || !memoText.trim()) return;
     const memo: Memo = { spotName: spot.name, text: memoText, date: new Date().toLocaleDateString('ja-JP') };
     saveMemo(memo); setMemos(loadMemos()); setMemoText(''); setShowMemo(false);
