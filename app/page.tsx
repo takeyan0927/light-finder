@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import { getSunPosition, analyzeLighting } from '@/lib/sun/calculator';
 import SunCalc from 'suncalc';
 
@@ -360,9 +359,6 @@ function saveMemo(memo: Memo) {
 // メインコンポーネント
 // ─────────────────────────────────────────────
 export default function Page() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
   const [now, setNow] = useState<Date | null>(null);
   const [spot, setSpot] = useState<Spot | null>(null);
   const [showNight, setShowNight] = useState(false);
@@ -416,20 +412,23 @@ export default function Page() {
     const t = setInterval(() => setNow(new Date()), 60000);
 
     // URLパラメータからスポットを復元
-    const urlLat  = searchParams.get('lat');
-    const urlLng  = searchParams.get('lng');
-    const urlBear = searchParams.get('bearing');
-    const urlName = searchParams.get('spotName');
-    if (urlLat && urlLng && urlBear && urlName) {
-      const lat     = parseFloat(urlLat);
-      const lng     = parseFloat(urlLng);
-      const bearing = parseInt(urlBear, 10);
-      if (!isNaN(lat) && !isNaN(lng) && !isNaN(bearing)) {
-        const restored: Spot = { name: decodeURIComponent(urlName), lat, lng, bearing };
-        setSpot(restored);
-        setQuery(restored.name);
-        setManualBearing(bearing);
-        setStep('result');
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlLat  = params.get('lat');
+      const urlLng  = params.get('lng');
+      const urlBear = params.get('bearing');
+      const urlName = params.get('spotName');
+      if (urlLat && urlLng && urlBear && urlName) {
+        const lat     = parseFloat(urlLat);
+        const lng     = parseFloat(urlLng);
+        const bearing = parseInt(urlBear, 10);
+        if (!isNaN(lat) && !isNaN(lng) && !isNaN(bearing)) {
+          const restored: Spot = { name: decodeURIComponent(urlName), lat, lng, bearing };
+          setSpot(restored);
+          setQuery(restored.name);
+          setManualBearing(bearing);
+          setStep('result');
+        }
       }
     }
 
@@ -667,7 +666,7 @@ export default function Page() {
     setFavorites(loadFavorites());
   };
 
-  // ─── URL共有機能（強化版） ───
+  // ─── URL共有機能 ───
   const handleShare = () => {
     if (!spot) return;
     const base = typeof window !== 'undefined' ? window.location.origin : 'https://zekkei-finder.com';
@@ -675,21 +674,24 @@ export default function Page() {
       lat:      spot.lat.toString(),
       lng:      spot.lng.toString(),
       bearing:  spot.bearing.toString(),
-      spotName: encodeURIComponent(spot.name),
+      spotName: spot.name,
     });
     const shareUrl = `${base}/?${params.toString()}`;
-
-    const sceneLabel = scene?.label ?? '';
-    const shareText = `📍 ${spot.name}\n${scene?.emoji ?? ''} ${sceneLabel}\n\n撮影タイミングをチェック👇\n${shareUrl}\n\n#絶景ファインダー #写真撮影 #絶景`;
-
-    if (navigator.share) {
-      navigator.share({ title: `絶景ファインダー｜${spot.name}`, text: shareText, url: shareUrl }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        setShareMsg('URLをコピーしました！');
-        setTimeout(() => setShareMsg(''), 2500);
-      });
-    }
+    // 常にクリップボードにコピー
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setShareMsg('URLをコピーしました！');
+      setTimeout(() => setShareMsg(''), 2500);
+    }).catch(() => {
+      // clipboard API非対応の場合はテキストエリアで代替
+      const ta = document.createElement('textarea');
+      ta.value = shareUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setShareMsg('URLをコピーしました！');
+      setTimeout(() => setShareMsg(''), 2500);
+    });
   };
 
   const handleSaveMemo = () => {
