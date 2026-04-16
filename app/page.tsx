@@ -102,17 +102,18 @@ function getSunDesc(altitude: number, angleDiff: number) {
 // ─────────────────────────────────────────────
 function getMoonTimes(date: Date, lat: number, lng: number) {
   const times = SunCalc.getMoonTimes(date, lat, lng);
-  const rise = times.rise instanceof Date ? formatTime(times.rise) : null;
-  const set  = times.set  instanceof Date ? formatTime(times.set)  : null;
+  const fmt = (d: Date) => d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
+  const rise = times.rise instanceof Date ? fmt(times.rise) : null;
+  const set  = times.set  instanceof Date ? fmt(times.set)  : null;
   const moonPos = SunCalc.getMoonPosition(date, lat, lng);
   const azimuth = Math.round((moonPos.azimuth * 180 / Math.PI + 180 + 360) % 360);
   return { rise, set, azimuth };
 }
 
 // ─────────────────────────────────────────────
-// 撮影計画カード生成（Canvas API）
+// 撮影計画カード生成（Canvas API）- クライアント専用
 // ─────────────────────────────────────────────
-async function generateShareCard(params: {
+function generateShareCard(params: {
   spotName: string;
   date: string;
   sunrise: string;
@@ -134,166 +135,126 @@ async function generateShareCard(params: {
   mode: string;
   tip: string;
 }): Promise<string> {
-  const canvas = document.createElement('canvas');
-  canvas.width = 800;
-  canvas.height = 960;
-  const ctx = canvas.getContext('2d')!;
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 960;
+    const ctx = canvas.getContext('2d')!;
 
-  // 背景グラデーション（明るめ）
-  const grad = ctx.createLinearGradient(0, 0, 800, 960);
-  grad.addColorStop(0, '#fff8f0');
-  grad.addColorStop(0.5, '#fff3e0');
-  grad.addColorStop(1, '#ffecd2');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.rect(0, 0, 800, 960);
-  ctx.fill();
-
-  // ヘッダーライン
-  ctx.fillStyle = '#e67e22';
-  ctx.fillRect(40, 40, 120, 3);
-
-  // タイトルラベル
-  ctx.font = '500 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#e67e22';
-  ctx.fillText('SHOOTING PLAN · 絶景ファインダー', 40, 80);
-
-  // スポット名
-  ctx.font = 'bold 52px -apple-system, sans-serif';
-  ctx.fillStyle = '#1a1a1a';
-  ctx.fillText(params.spotName.length > 12 ? params.spotName.slice(0, 12) + '…' : params.spotName, 40, 148);
-
-  // 日付
-  ctx.font = '400 26px -apple-system, sans-serif';
-  ctx.fillStyle = '#999';
-  ctx.fillText(params.date, 40, 188);
-
-  // 区切り線
-  ctx.strokeStyle = 'rgba(225,112,85,0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(40, 210); ctx.lineTo(760, 210); ctx.stroke();
-
-  // カード描画ヘルパー
-  const drawCard = (x: number, y: number, w: number, h: number, borderColor: string, _bgAlpha: number) => {
-    const r = 12;
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = borderColor;
-    ctx.lineWidth = 1.5;
+    const grad = ctx.createLinearGradient(0, 0, 800, 960);
+    grad.addColorStop(0, '#fff8f0');
+    grad.addColorStop(0.5, '#fff3e0');
+    grad.addColorStop(1, '#ffecd2');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.arcTo(x + w, y, x + w, y + r, r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-    ctx.lineTo(x + r, y + h);
-    ctx.arcTo(x, y + h, x, y + h - r, r);
-    ctx.lineTo(x, y + r);
-    ctx.arcTo(x, y, x + r, y, r);
-    ctx.closePath();
+    ctx.rect(0, 0, 800, 960);
     ctx.fill();
-    ctx.stroke();
-  };
 
-  // 日の出カード
-  drawCard(40, 230, 340, 140, 'rgba(243,156,18,0.4)', 0.05);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#e67e22';
-  ctx.fillText('🌅 日の出', 60, 265);
-  ctx.font = 'bold 56px -apple-system, sans-serif';
-  ctx.fillStyle = '#e67e22';
-  ctx.fillText(params.sunrise, 60, 330);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#999';
-  ctx.fillText(`方向 ${params.sunriseAzimuth}°`, 60, 358);
+    ctx.fillStyle = '#e67e22';
+    ctx.fillRect(40, 40, 120, 3);
 
-  // 月の出カード
-  drawCard(420, 230, 340, 140, 'rgba(108,92,231,0.3)', 0.05);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#6c5ce7';
-  ctx.fillText('🌙 月の出', 440, 265);
-  ctx.font = 'bold 56px -apple-system, sans-serif';
-  ctx.fillStyle = '#6c5ce7';
-  ctx.fillText(params.moonRise ?? '−−:−−', 440, 330);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#999';
-  ctx.fillText(`${params.moonPhase} ${params.moonIllumination}%`, 440, 358);
+    ctx.font = '500 22px sans-serif';
+    ctx.fillStyle = '#e67e22';
+    ctx.fillText('SHOOTING PLAN · 絶景ファインダー', 40, 80);
 
-  // 日の入りカード
-  drawCard(40, 390, 340, 140, 'rgba(225,112,85,0.4)', 0.05);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#e17055';
-  ctx.fillText('🌇 日の入り', 60, 425);
-  ctx.font = 'bold 56px -apple-system, sans-serif';
-  ctx.fillStyle = '#e17055';
-  ctx.fillText(params.sunset, 60, 490);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#999';
-  ctx.fillText(`方向 ${params.sunsetAzimuth}°`, 60, 518);
+    ctx.font = 'bold 52px sans-serif';
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillText(params.spotName.length > 12 ? params.spotName.slice(0, 12) + '…' : params.spotName, 40, 148);
 
-  // マジックアワーカード
-  drawCard(420, 390, 340, 140, 'rgba(241,196,15,0.5)', 0.05);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#d4a017';
-  ctx.fillText('✨ マジックアワー', 440, 425);
-  ctx.font = 'bold 34px -apple-system, sans-serif';
-  ctx.fillStyle = '#d4a017';
-  ctx.fillText(`${params.magicStart}〜${params.magicEnd}`, 440, 478);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#999';
-  ctx.fillText(`ゴールデン ${params.goldenStart}〜${params.goldenEnd}`, 440, 518);
-
-  // 撮影レシピカード
-  drawCard(40, 550, 720, 180, 'rgba(0,0,0,0.08)', 0);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#999';
-  ctx.fillText('📷 撮影レシピ', 60, 585);
-  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(60, 598); ctx.lineTo(740, 598); ctx.stroke();
-  const recipes = [
-    ['露出補正', params.ev],
-    ['ホワイトバランス', params.wb],
-    ['撮影モード', params.mode],
-  ];
-  recipes.forEach(([label, val], i) => {
-    ctx.font = '400 24px -apple-system, sans-serif';
+    ctx.font = '400 26px sans-serif';
     ctx.fillStyle = '#999';
-    ctx.fillText(label, 60, 635 + i * 38);
-    ctx.font = '500 24px -apple-system, sans-serif';
-    ctx.fillStyle = '#333';
+    ctx.fillText(params.date, 40, 188);
+
+    ctx.strokeStyle = 'rgba(225,112,85,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(40, 210); ctx.lineTo(760, 210); ctx.stroke();
+
+    const drawCard = (x: number, y: number, w: number, h: number, borderColor: string) => {
+      const r = 12;
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.arcTo(x + w, y, x + w, y + r, r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      ctx.lineTo(x + r, y + h);
+      ctx.arcTo(x, y + h, x, y + h - r, r);
+      ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    };
+
+    drawCard(40, 230, 340, 140, 'rgba(243,156,18,0.4)');
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#e67e22';
+    ctx.fillText('🌅 日の出', 60, 265);
+    ctx.font = 'bold 56px sans-serif'; ctx.fillStyle = '#e67e22';
+    ctx.fillText(params.sunrise, 60, 330);
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText('方向 ' + params.sunriseAzimuth + '°', 60, 358);
+
+    drawCard(420, 230, 340, 140, 'rgba(108,92,231,0.3)');
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#6c5ce7';
+    ctx.fillText('🌙 月の出', 440, 265);
+    ctx.font = 'bold 56px sans-serif'; ctx.fillStyle = '#6c5ce7';
+    ctx.fillText(params.moonRise ?? '--:--', 440, 330);
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText(params.moonPhase + ' ' + params.moonIllumination + '%', 440, 358);
+
+    drawCard(40, 390, 340, 140, 'rgba(225,112,85,0.4)');
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#e17055';
+    ctx.fillText('🌇 日の入り', 60, 425);
+    ctx.font = 'bold 56px sans-serif'; ctx.fillStyle = '#e17055';
+    ctx.fillText(params.sunset, 60, 490);
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText('方向 ' + params.sunsetAzimuth + '°', 60, 518);
+
+    drawCard(420, 390, 340, 140, 'rgba(241,196,15,0.5)');
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#d4a017';
+    ctx.fillText('✨ マジックアワー', 440, 425);
+    ctx.font = 'bold 30px sans-serif'; ctx.fillStyle = '#d4a017';
+    ctx.fillText(params.magicStart + '〜' + params.magicEnd, 440, 475);
+    ctx.font = '400 20px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText('ゴールデン ' + params.goldenStart + '〜' + params.goldenEnd, 440, 510);
+
+    drawCard(40, 550, 720, 180, 'rgba(0,0,0,0.08)');
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText('📷 撮影レシピ', 60, 585);
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(60, 598); ctx.lineTo(740, 598); ctx.stroke();
+    const recipes = [['露出補正', params.ev], ['ホワイトバランス', params.wb], ['撮影モード', params.mode]];
+    recipes.forEach(([label, val], i) => {
+      ctx.font = '400 24px sans-serif'; ctx.fillStyle = '#999';
+      ctx.fillText(label, 60, 635 + i * 38);
+      ctx.font = '500 24px sans-serif'; ctx.fillStyle = '#333';
+      ctx.textAlign = 'right'; ctx.fillText(val, 740, 635 + i * 38); ctx.textAlign = 'left';
+    });
+    ctx.font = '400 20px sans-serif'; ctx.fillStyle = '#bbb';
+    ctx.fillText('💡 ' + params.tip, 60, 718);
+
+    drawCard(40, 750, 720, 100, 'rgba(0,0,0,0.07)');
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText('現在のシーン', 60, 785);
+    ctx.font = 'bold 30px sans-serif'; ctx.fillStyle = '#e67e22';
+    ctx.fillText(params.sceneLabel, 60, 830);
     ctx.textAlign = 'right';
-    ctx.fillText(val, 740, 635 + i * 38);
+    ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText('おすすめ度', 740, 785);
+    ctx.font = 'bold 30px sans-serif'; ctx.fillStyle = '#c8a84b';
+    ctx.fillText('★'.repeat(params.stars) + '☆'.repeat(5 - params.stars), 740, 830);
     ctx.textAlign = 'left';
+
+    ctx.font = '400 20px sans-serif'; ctx.fillStyle = '#ccc';
+    ctx.textAlign = 'center';
+    ctx.fillText('zekkei-finder.com  #絶景ファインダー  #風景写真', 400, 920);
+    ctx.textAlign = 'left';
+
+    resolve(canvas.toDataURL('image/png'));
   });
-  ctx.font = '400 21px -apple-system, sans-serif';
-  ctx.fillStyle = '#bbb';
-  ctx.fillText('💡 ' + params.tip, 60, 718);
-
-  // シーン・おすすめ度カード
-  drawCard(40, 750, 720, 100, 'rgba(0,0,0,0.07)', 0);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#999';
-  ctx.fillText('現在のシーン', 60, 785);
-  ctx.font = 'bold 30px -apple-system, sans-serif';
-  ctx.fillStyle = '#e67e22';
-  ctx.fillText(params.sceneLabel, 60, 830);
-  ctx.font = '400 22px -apple-system, sans-serif';
-  ctx.fillStyle = '#999';
-  ctx.textAlign = 'right';
-  ctx.fillText('おすすめ度', 740, 785);
-  ctx.font = 'bold 30px -apple-system, sans-serif';
-  ctx.fillStyle = '#c8a84b';
-  ctx.fillText('★'.repeat(params.stars) + '☆'.repeat(5 - params.stars), 740, 830);
-  ctx.textAlign = 'left';
-
-  // フッター
-  ctx.font = '400 20px -apple-system, sans-serif';
-  ctx.fillStyle = '#ccc';
-  ctx.textAlign = 'center';
-  ctx.fillText('zekkei-finder.com　#絶景ファインダー　#風景写真', 400, 920);
-  ctx.textAlign = 'left';
-
-  return canvas.toDataURL('image/png');
 }
 
 function getMoonForDate(date: Date, nightCloudcover?: number, nightWeathercode?: number) {
