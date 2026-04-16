@@ -145,7 +145,8 @@ async function generateShareCard(params: {
   grad.addColorStop(0.5, '#fff3e0');
   grad.addColorStop(1, '#ffecd2');
   ctx.fillStyle = grad;
-  ctx.roundRect(0, 0, 800, 960, 24);
+  ctx.beginPath();
+  ctx.rect(0, 0, 800, 960);
   ctx.fill();
 
   // ヘッダーライン
@@ -173,12 +174,22 @@ async function generateShareCard(params: {
   ctx.beginPath(); ctx.moveTo(40, 210); ctx.lineTo(760, 210); ctx.stroke();
 
   // カード描画ヘルパー
-  const drawCard = (x: number, y: number, w: number, h: number, borderColor: string, bgAlpha: number) => {
+  const drawCard = (x: number, y: number, w: number, h: number, borderColor: string, _bgAlpha: number) => {
+    const r = 12;
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    (ctx as any).roundRect(x, y, w, h, 12);
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
   };
