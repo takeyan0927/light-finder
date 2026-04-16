@@ -138,16 +138,16 @@ function generateShareCard(params: {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas');
     canvas.width = 800;
-    canvas.height = 960;
+    canvas.height = 1000;
     const ctx = canvas.getContext('2d')!;
 
-    const grad = ctx.createLinearGradient(0, 0, 800, 960);
+    const grad = ctx.createLinearGradient(0, 0, 800, 1000);
     grad.addColorStop(0, '#fff8f0');
     grad.addColorStop(0.5, '#fff3e0');
     grad.addColorStop(1, '#ffecd2');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.rect(0, 0, 800, 960);
+    ctx.rect(0, 0, 800, 1000);
     ctx.fill();
 
     ctx.fillStyle = '#e67e22';
@@ -221,36 +221,36 @@ function generateShareCard(params: {
     ctx.font = '400 20px sans-serif'; ctx.fillStyle = '#999';
     ctx.fillText('ゴールデン ' + params.goldenStart + '〜' + params.goldenEnd, 440, 510);
 
-    drawCard(40, 550, 720, 180, 'rgba(0,0,0,0.08)');
+    drawCard(40, 550, 720, 220, 'rgba(0,0,0,0.08)');
     ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
     ctx.fillText('📷 撮影レシピ', 60, 585);
     ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(60, 598); ctx.lineTo(740, 598); ctx.stroke();
     const recipes = [['露出補正', params.ev], ['ホワイトバランス', params.wb], ['撮影モード', params.mode]];
     recipes.forEach(([label, val], i) => {
-      ctx.font = '400 24px sans-serif'; ctx.fillStyle = '#999';
-      ctx.fillText(label, 60, 635 + i * 38);
-      ctx.font = '500 24px sans-serif'; ctx.fillStyle = '#333';
-      ctx.textAlign = 'right'; ctx.fillText(val, 740, 635 + i * 38); ctx.textAlign = 'left';
+      ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
+      ctx.fillText(label, 60, 632 + i * 38);
+      ctx.font = '500 22px sans-serif'; ctx.fillStyle = '#333';
+      ctx.textAlign = 'right'; ctx.fillText(val, 740, 632 + i * 38); ctx.textAlign = 'left';
     });
-    ctx.font = '400 20px sans-serif'; ctx.fillStyle = '#bbb';
-    ctx.fillText('💡 ' + params.tip, 60, 718);
+    ctx.font = '400 19px sans-serif'; ctx.fillStyle = '#aaa';
+    ctx.fillText('💡 ' + params.tip, 60, 755);
 
-    drawCard(40, 750, 720, 100, 'rgba(0,0,0,0.07)');
+    drawCard(40, 790, 720, 100, 'rgba(0,0,0,0.07)');
     ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
-    ctx.fillText('現在のシーン', 60, 785);
-    ctx.font = 'bold 30px sans-serif'; ctx.fillStyle = '#e67e22';
-    ctx.fillText(params.sceneLabel, 60, 830);
+    ctx.fillText('現在のシーン', 60, 825);
+    ctx.font = 'bold 28px sans-serif'; ctx.fillStyle = '#e67e22';
+    ctx.fillText(params.sceneLabel, 60, 868);
     ctx.textAlign = 'right';
     ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
-    ctx.fillText('おすすめ度', 740, 785);
-    ctx.font = 'bold 30px sans-serif'; ctx.fillStyle = '#c8a84b';
-    ctx.fillText('★'.repeat(params.stars) + '☆'.repeat(5 - params.stars), 740, 830);
+    ctx.fillText('おすすめ度', 740, 825);
+    ctx.font = 'bold 28px sans-serif'; ctx.fillStyle = '#c8a84b';
+    ctx.fillText('★'.repeat(params.stars) + '☆'.repeat(5 - params.stars), 740, 868);
     ctx.textAlign = 'left';
 
-    ctx.font = '400 20px sans-serif'; ctx.fillStyle = '#ccc';
+    ctx.font = '400 19px sans-serif'; ctx.fillStyle = '#bbb';
     ctx.textAlign = 'center';
-    ctx.fillText('zekkei-finder.com  #絶景ファインダー  #風景写真', 400, 920);
+    ctx.fillText('zekkei-finder.com  #絶景ファインダー  #風景写真', 400, 930);
     ctx.textAlign = 'left';
 
     resolve(canvas.toDataURL('image/png'));
