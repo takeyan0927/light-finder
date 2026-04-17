@@ -1612,7 +1612,7 @@ export default function Page() {
               </div>
 
               {/* ── 撮影計画カード生成 ── */}
-              {!suggestionResult && scene && spot && (
+              {!suggestionResult && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid rgba(230,126,34,0.2)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>🎴 撮影計画カードを生成</div>
                   <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.8rem', lineHeight: 1.6 }}>日の出・月・撮影レシピを1枚の画像にまとめてSNSにシェアできます</div>
