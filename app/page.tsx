@@ -864,24 +864,27 @@ export default function Page() {
   };
 
   const handleGenerateCard = async () => {
-    if (!spot || !scene || !sunrise || !sunset || !now) return;
+    if (!spot || !scene || !now) return;
     setGeneratingCard(true);
     const todaySr = getSunDirection(now as Date, spot.lat, spot.lng, 'sunrise');
     const todaySs = getSunDirection(now as Date, spot.lat, spot.lng, 'sunset');
+    const sunT = SunCalc.getTimes(now, spot.lat, spot.lng);
+    const sr = sunT.sunrise;
+    const ss = sunT.sunset;
     const moonT = getMoonTimes(now as Date, spot.lat, spot.lng);
     const recipe = getRecipe(scene.label);
     const dateStr = now.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    const magicStartTime = formatTime(new Date(sunrise.getTime() - 30 * 60000));
-    const goldenEndTime = formatTime(new Date(sunrise.getTime() + 60 * 60000));
-    const magicEndTime = formatTime(new Date(sunset.getTime() + 30 * 60000));
-    const goldenStartTime = formatTime(new Date(sunset.getTime() - 60 * 60000));
+    const magicStartTime = sr ? formatTime(new Date(sr.getTime() - 30 * 60000)) : '--:--';
+    const goldenEndTime   = sr ? formatTime(new Date(sr.getTime() + 60 * 60000)) : '--:--';
+    const magicEndTime    = ss ? formatTime(new Date(ss.getTime() + 30 * 60000)) : '--:--';
+    const goldenStartTime = ss ? formatTime(new Date(ss.getTime() - 60 * 60000)) : '--:--';
     try {
       const url = await generateShareCard({
         spotName: spot.name,
         date: dateStr,
-        sunrise: formatTime(sunrise),
+        sunrise: sr ? formatTime(sr) : '--:--',
         sunriseAzimuth: todaySr.azimuth,
-        sunset: formatTime(sunset),
+        sunset: ss ? formatTime(ss) : '--:--',
         sunsetAzimuth: todaySs.azimuth,
         magicStart: magicStartTime,
         magicEnd: magicEndTime,
@@ -1609,7 +1612,7 @@ export default function Page() {
               </div>
 
               {/* ── 撮影計画カード生成 ── */}
-              {!suggestionResult && scene && sunrise && sunset && (
+              {!suggestionResult && scene && spot && (
                 <div style={{ background: '#fff', borderRadius: '16px', padding: '1rem 1.2rem', marginBottom: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid rgba(230,126,34,0.2)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333', marginBottom: '0.8rem' }}>🎴 撮影計画カードを生成</div>
                   <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.8rem', lineHeight: 1.6 }}>日の出・月・撮影レシピを1枚の画像にまとめてSNSにシェアできます</div>
