@@ -228,12 +228,12 @@ function generateShareCard(params: {
     ctx.beginPath(); ctx.moveTo(60, 598); ctx.lineTo(740, 598); ctx.stroke();
     const recipes = [['露出補正', params.ev], ['ホワイトバランス', params.wb], ['撮影モード', params.mode]];
     recipes.forEach(([label, val], i) => {
-      ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#999';
+      ctx.font = '400 22px sans-serif'; ctx.fillStyle = '#333';
       ctx.fillText(label, 60, 632 + i * 38);
-      ctx.font = '500 22px sans-serif'; ctx.fillStyle = '#333';
+      ctx.font = '500 22px sans-serif'; ctx.fillStyle = '#111';
       ctx.textAlign = 'right'; ctx.fillText(val, 740, 632 + i * 38); ctx.textAlign = 'left';
     });
-    ctx.font = '400 19px sans-serif'; ctx.fillStyle = '#aaa';
+    ctx.font = '400 19px sans-serif'; ctx.fillStyle = '#555';
     ctx.fillText('💡 ' + params.tip, 60, 755);
 
     drawCard(40, 790, 720, 100, 'rgba(0,0,0,0.07)');
